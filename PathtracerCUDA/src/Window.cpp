@@ -1,4 +1,5 @@
 #include "Window.h"
+#define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 #include "Utility.h"
 #include "ContainerUtility.h"
@@ -23,7 +24,8 @@ Window::Window(unsigned int width, unsigned int height, const std::string &title
 
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_COMPAT_PROFILE);
+	glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
 	glfwWindowHint(GLFW_AUTO_ICONIFY, GLFW_FALSE);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
@@ -35,6 +37,11 @@ Window::Window(unsigned int width, unsigned int height, const std::string &title
 	glfwWindowHint(GLFW_STENCIL_BITS, 0);
 
 	m_windowHandle = glfwCreateWindow(m_width, m_height, m_title.c_str(), nullptr, nullptr);
+
+	int w, h;
+	glfwGetFramebufferSize(m_windowHandle, &w, &h);
+	m_width = w;
+	m_height = h;
 
 	if (!m_windowHandle)
 	{
@@ -65,9 +72,13 @@ Window::~Window()
 
 void Window::pollEvents()
 {
-	glfwSwapBuffers(m_windowHandle);
 	m_configurationChanged = false;
 	glfwPollEvents();
+}
+
+void Window::present()
+{
+	glfwSwapBuffers(m_windowHandle);
 }
 
 void *Window::getWindowHandle() const

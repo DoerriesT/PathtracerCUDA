@@ -19,6 +19,7 @@ public:
 	explicit Window(unsigned int width, unsigned int height, const std::string &title);
 	~Window();
 	void pollEvents();
+	void present();
 	void *getWindowHandle() const;
 	unsigned int getWidth() const;
 	unsigned int getHeight() const;

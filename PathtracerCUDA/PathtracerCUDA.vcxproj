@@ -83,6 +83,7 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="src\glad.c" />
     <CudaCompile Include="src\main.cu">
       <FileType>Document</FileType>
     </CudaCompile>
