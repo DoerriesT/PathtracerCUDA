@@ -1,0 +1,42 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="src">
+      <UniqueIdentifier>{5e04fc0a-89a3-4ee6-a902-653df04a762c}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Window.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Utility.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\UserInput.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\main.cu">
+      <Filter>src</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\Window.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\ContainerUtility.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Utility.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\IInputListener.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\InputTokens.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\UserInput.h">
+      <Filter>src</Filter>
+    </ClInclude>
+  </ItemGroup>
+</Project>
