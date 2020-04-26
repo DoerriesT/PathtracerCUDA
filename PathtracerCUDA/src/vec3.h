@@ -188,3 +188,8 @@ __device__ vec3 random_in_unit_disk(curandState &randState)
 	} while (length_squared(p) >= 1.0f);
 	return p;
 }
+
+__device__ vec3 random_vec(curandState &randState)
+{
+	return vec3(curand_uniform(&randState), curand_uniform(&randState), curand_uniform(&randState));
+}

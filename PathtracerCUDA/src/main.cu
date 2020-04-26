@@ -123,35 +123,61 @@ __global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool igno
 	resultBuffer[dstIdx] = { (unsigned char)(resultColor.x * 255.0f), (unsigned char)(resultColor.y * 255.0f) , (unsigned char)(resultColor.z * 255.0f), 255 };
 }
 
-__global__ void createWorld(Hittable **d_list, Hittable **d_world)
+__global__ void createWorld(Hittable **d_list, Hittable **d_world, curandState *randState, uint32_t listSize)
 {
 	if (threadIdx.x == 0 && blockIdx.x == 0)
 	{
-		d_list[0] = new Sphere(vec3(0.0f, 0.0f, -1.0f), 0.5f,
-			new Lambertian(vec3(0.1f, 0.2f, 0.5f)));
-		d_list[1] = new Sphere(vec3(0.0f, -100.5f, -1.0f), 100.0f,
-			new Lambertian(vec3(0.8f, 0.8f, 0.0f)));
+		uint32_t entityCount = 0;
 
-		d_list[2] = new Sphere(vec3(1.0f, 0.0f, -1.0f), 0.5f,
-			new Metal(vec3(0.8f, 0.6f, 0.2f), 1.0f));
+		d_list[entityCount++] = new Sphere(vec3(0.0f, -1000.0f, 0.0f), 1000.0f,
+			new Lambertian(vec3(0.5f, 0.5f, 0.5f)));
 
-		d_list[3] = new Sphere(vec3(-1.0f, 0.0f, -1.0f), 0.5f,
-			new Dielectric(1.5f));
+		for (int a = -11; a < 11; ++a)
+		{
+			for (int b = -11; b < 11; ++b)
+			{
+				auto chooseMat = curand_uniform(randState);
+				vec3 center(a + 0.9f * curand_uniform(randState), 0.2f, b + 0.9f * curand_uniform(randState));
+				if (length(center - vec3(4.0f, 0.2f, 0.0f)) > 0.9f)
+				{
+					if (chooseMat < 0.8f)
+					{
+						// diffuse
+						auto albedo = random_vec(*randState) * random_vec(*randState);
+						d_list[entityCount++] = new Sphere(center, 0.2f, new Lambertian(albedo));
+					}
+					else if (chooseMat < 0.95f)
+					{
+						// metal
+						auto albedo = random_vec(*randState) * 0.5f + 0.5f;
+						auto fuzz = curand_uniform(randState) * 0.5f;
+						d_list[entityCount++] = new Sphere(center, 0.2f, new Metal(albedo, fuzz));
+					}
+					else
+					{
+						// glass
+						d_list[entityCount++] = new Sphere(center, 0.2f, new Dielectric(1.5f));
+					}
+				}
+			}
+		}
 
-		d_list[4] = new Sphere(vec3(-1.0f, 0.0f, -1.0f), -0.45f,
-			new Dielectric(1.5f));
+		d_list[entityCount++] = new Sphere(vec3(0.0f, 1.0f, 0.0f), 1.0f, new Dielectric(1.5f));
 
-		*d_world = new HittableList(d_list, 5);
+		d_list[entityCount++] = new Sphere(vec3(-4.0f, 1.0f, 0.0f), 1.0f, new Lambertian(vec3(0.4f, 0.2f, 0.1f)));
+
+		d_list[entityCount++] = new Sphere(vec3(4.0f, 1.0f, 0.0f), 1.0f, new Metal(vec3(0.7f, 0.6f, 0.5f), 0.0f));
+
+		*d_world = new HittableList(d_list, entityCount);
 	}
 }
 
-__global__ void freeWorld(Hittable **d_list, Hittable **d_world)
+__global__ void freeWorld(Hittable **d_list, Hittable **d_world, uint32_t listSize)
 {
-	delete d_list[0];
-	delete d_list[1];
-	delete d_list[2];
-	delete d_list[3];
-	delete d_list[4];
+	for (uint32_t i = 0; i < listSize; ++i)
+	{
+		delete d_list[i];
+	}
 	delete *d_world;
 }
 
@@ -183,17 +209,21 @@ int main()
 	Hittable **d_list;
 	Hittable **d_world;
 	curandState *d_randState;
+	uint32_t entityListSize = 22 * 22 + 4;
 
 	auto radians = [](float degree)
 	{
 		return degree * (1.0f / 180.0f) * 3.14159265358979323846f;
 	};
 
-	vec3 lookfrom(3, 3, 2);
-	vec3 lookat(0, 0, -1);
+	vec3 lookfrom(13, 2, 3);
+	vec3 lookat(0, 0, 0);
 	vec3 vup(0, 1, 0);
+	auto dist_to_focus = 10.0;
+	auto aperture = 0.1;
+	float aspectRatio = (float)width / height;
 
-	Camera camera(lookfrom, lookat, vec3(0.0f, 1.0f, 0.0f), radians(20.0f), (float)width / height, 2.0f, length(lookfrom - lookat));
+	Camera camera(lookfrom, lookat, vup, radians(20.0f), aspectRatio, aperture, dist_to_focus);
 
 	// init opengl
 	{
@@ -218,20 +248,28 @@ int main()
 		checkCudaErrors(cudaSetDevice(0));
 		// register with cuda
 		checkCudaErrors(cudaGraphicsGLRegisterBuffer(&pixelBufferCuda, pixelBufferGL, cudaGraphicsMapFlagsWriteDiscard));
-		checkCudaErrors(cudaMalloc((void **)&accumBuffer, width * height * sizeof(float4)));
-		checkCudaErrors(cudaMalloc((void **)&d_list, 5 * sizeof(Hittable *)));
-		checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(Hittable *)));
-		createWorld << <1, 1 >> > (d_list, d_world);
-		checkCudaErrors(cudaGetLastError());
-		checkCudaErrors(cudaDeviceSynchronize());
 
+		// alloc memory for prng state
 		checkCudaErrors(cudaMalloc((void **)&d_randState, width * height * sizeof(curandState)));
 
+		// init prng state
 		dim3 threads(8, 8, 1);
 		dim3 blocks((width + 7) / 8, (height + 7) / 8, 1);
 		initRandState << <blocks, threads >> > (width, height, d_randState);
 		checkCudaErrors(cudaGetLastError());
 		checkCudaErrors(cudaDeviceSynchronize());
+
+		// alloc memory for accum buffer and entities
+		checkCudaErrors(cudaMalloc((void **)&accumBuffer, width * height * sizeof(float4)));
+		checkCudaErrors(cudaMalloc((void **)&d_list, entityListSize * sizeof(Hittable *)));
+		checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(Hittable *)));
+
+		// create entities
+		createWorld << <1, 1 >> > (d_list, d_world, d_randState, entityListSize);
+		checkCudaErrors(cudaGetLastError());
+		checkCudaErrors(cudaDeviceSynchronize());
+
+		
 	}
 
 	uint32_t frame = 0;
@@ -274,7 +312,7 @@ int main()
 	checkCudaErrors(cudaGraphicsUnregisterResource(pixelBufferCuda));
 
 	// free cuda memory
-	freeWorld << <1, 1 >> > (d_list, d_world);
+	freeWorld << <1, 1 >> > (d_list, d_world, entityListSize);
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaFree(d_list));
 	checkCudaErrors(cudaFree(d_world));
