@@ -18,6 +18,7 @@
 #include "vec3.h"
 #include "Hittable.h"
 #include "Camera.h"
+#include "Material.h"
 
 #define checkCudaErrors(val) check_cuda( (val), #val, __FILE__, __LINE__ )
 void check_cuda(cudaError_t result, char const *const func, const char *const file, int const line)
@@ -32,17 +33,9 @@ void check_cuda(cudaError_t result, char const *const func, const char *const fi
 	}
 }
 
-__device__ vec3 random_unit_vector(curandState &randState)
-{
-	auto a = curand_uniform(&randState) * 2.0f * 3.14159265358979323846f;
-	auto z = curand_uniform(&randState) * 2.0f - 1.0f;
-	auto r = sqrt(1.0f - z * z);
-	return vec3(r * cos(a), r * sin(a), z);
-}
-
 __device__ vec3 random_in_hemisphere(const vec3 &normal, curandState &randState)
 {
-	vec3 in_unit_sphere = normalize(random_unit_vector(randState));
+	vec3 in_unit_sphere = normalize(random_unit_vec(randState));
 	return dot(in_unit_sphere, normal) > 0.0 ? in_unit_sphere : -in_unit_sphere;
 }
 
@@ -65,16 +58,24 @@ __host__ __device__ vec3 saturate(vec3 x)
 
 __device__ vec3 getColor(const Ray &r, Hittable **world, curandState &randState)
 {
-	float att = 1.0f;
+	vec3 att = vec3(1.0f, 1.0f, 1.0f);
 	Ray ray = r;
 	for (int iteration = 0; iteration < 5; ++iteration)
 	{
 		HitRecord rec;
 		if ((*world)->hit(ray, 0.001f, FLT_MAX, rec))
 		{
-			att *= 0.5f;
-			vec3 target = rec.m_p + rec.m_normal + random_unit_vector(randState);
-			ray = Ray(rec.m_p, target - rec.m_p);
+			Ray scattered;
+			vec3 attenuation;
+			if (rec.m_material->scatter(ray, rec, randState, attenuation, scattered))
+			{
+				att *= attenuation;
+				ray = scattered;
+			}
+			else
+			{
+				return vec3(0.0f, 0.0f, 0.0f);
+			}
 		}
 		else
 		{
@@ -127,9 +128,18 @@ __global__ void createWorld(Hittable **d_list, Hittable **d_world)
 {
 	if (threadIdx.x == 0 && blockIdx.x == 0)
 	{
-		d_list[0] = new Sphere(vec3(0.0f, 0.0f, -1.0f), 0.5f);
-		d_list[1] = new Sphere(vec3(0.0f, -100.5f, -1.0f), 100.0f);
-		*d_world = new HittableList(d_list, 2);
+		d_list[0] = new Sphere(vec3(0.0f, 0.0f, -1.0f), 0.5f,
+			new Lambertian(vec3(0.7f, 0.3f, 0.3f)));
+		d_list[1] = new Sphere(vec3(0.0f, -100.5f, -1.0f), 100.0f,
+			new Lambertian(vec3(0.8f, 0.8f, 0.0f)));
+
+		d_list[2] = new Sphere(vec3(1.0f, 0.0f, -1.0f), 0.5f,
+			new Metal(vec3(0.8f, 0.6f, 0.2f), 1.0f));
+
+		d_list[3] = new Sphere(vec3(-1.0f, 0.0f, -1.0f), 0.5f,
+			new Metal(vec3(0.8f, 0.8f, 0.8f), 0.3f));
+
+		*d_world = new HittableList(d_list, 4);
 	}
 }
 
@@ -194,7 +204,7 @@ int main()
 		// register with cuda
 		checkCudaErrors(cudaGraphicsGLRegisterBuffer(&pixelBufferCuda, pixelBufferGL, cudaGraphicsMapFlagsWriteDiscard));
 		checkCudaErrors(cudaMalloc((void **)&accumBuffer, width * height * sizeof(float4)));
-		checkCudaErrors(cudaMalloc((void **)&d_list, 2 * sizeof(Hittable *)));
+		checkCudaErrors(cudaMalloc((void **)&d_list, 4 * sizeof(Hittable *)));
 		checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(Hittable *)));
 		createWorld << <1, 1 >> > (d_list, d_world);
 		checkCudaErrors(cudaGetLastError());

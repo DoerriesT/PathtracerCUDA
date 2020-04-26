@@ -1,6 +1,7 @@
 #pragma once
 #include "cuda_runtime.h"
 #include <iostream>
+#include <curand_kernel.h>
 
 struct vec3
 {
@@ -31,6 +32,14 @@ struct vec3
 		e[0] *= t;
 		e[1] *= t;
 		e[2] *= t;
+		return *this;
+	}
+
+	__host__ __device__ vec3 &operator*=(const vec3 &t)
+	{
+		e[0] *= t.x;
+		e[1] *= t.y;
+		e[2] *= t.z;
 		return *this;
 	}
 
@@ -137,4 +146,26 @@ __host__ __device__ float length(vec3 v)
 __host__ __device__ inline vec3 normalize(vec3 v)
 {
 	return v / length(v);
+}
+
+__host__ __device__ vec3 reflect(const vec3 &v, const vec3 &n) 
+{
+	return v - 2.0f * dot(v, n) * n;
+}
+
+__device__ inline vec3 random_unit_vec(curandState &randState)
+{
+	auto a = curand_uniform(&randState) * 2.0f * 3.14159265358979323846f;
+	auto z = curand_uniform(&randState) * 2.0f - 1.0f;
+	auto r = sqrt(1.0f - z * z);
+	return vec3(r * cos(a), r * sin(a), z);
+}
+
+__device__ vec3 random_in_unit_sphere(curandState &randState) {
+	vec3 p;
+	do
+	{
+		p = vec3(curand_uniform(&randState), curand_uniform(&randState), curand_uniform(&randState)) * 2.0f - 1.0f;
+	} while (length_squared(p) >= 1.0f);
+	return p;
 }

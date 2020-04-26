@@ -2,10 +2,13 @@
 #include "Ray.h"
 #include "vec3.h"
 
+class Material;
+
 struct HitRecord
 {
 	vec3 m_p;
 	vec3 m_normal;
+	Material *m_material;
 	float m_t;
 	bool m_frontFace;
 
@@ -57,13 +60,18 @@ class Sphere : public Hittable
 {
 public:
 	__device__ Sphere() {}
-	__device__ Sphere(vec3 center, float radius) : m_center(center), m_radius(radius) {};
+	__device__ Sphere(vec3 center, float radius, Material *material) 
+		: m_center(center), 
+		m_radius(radius),
+		m_material(material)
+	{};
 
 	__device__ virtual bool hit(const Ray &r, float t_min, float t_max, HitRecord &rec) const override;
 
 public:
 	vec3 m_center;
 	float m_radius;
+	Material *m_material;
 };
 
 __device__ bool Sphere::hit(const Ray &r, float t_min, float t_max, HitRecord &rec) const
@@ -84,6 +92,7 @@ __device__ bool Sphere::hit(const Ray &r, float t_min, float t_max, HitRecord &r
 			rec.m_p = r.at(rec.m_t);
 			vec3 outwardNormal = (rec.m_p - m_center) / m_radius;
 			rec.setFaceNormal(r, outwardNormal);
+			rec.m_material = m_material;
 			return true;
 		}
 		temp = (-half_b + root) / a;
@@ -93,6 +102,7 @@ __device__ bool Sphere::hit(const Ray &r, float t_min, float t_max, HitRecord &r
 			rec.m_p = r.at(rec.m_t);
 			vec3 outwardNormal = (rec.m_p - m_center) / m_radius;
 			rec.setFaceNormal(r, outwardNormal);
+			rec.m_material = m_material;
 			return true;
 		}
 	}

@@ -97,6 +97,7 @@
     <ClInclude Include="src\Hittable.h" />
     <ClInclude Include="src\IInputListener.h" />
     <ClInclude Include="src\InputTokens.h" />
+    <ClInclude Include="src\Material.h" />
     <ClInclude Include="src\Ray.h" />
     <ClInclude Include="src\UserInput.h" />
     <ClInclude Include="src\Utility.h" />

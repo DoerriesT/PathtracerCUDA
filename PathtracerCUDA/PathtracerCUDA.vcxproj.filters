@@ -50,6 +50,9 @@
     <ClInclude Include="src\Camera.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="src\Material.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="src\main.cu" />
