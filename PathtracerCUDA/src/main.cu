@@ -89,7 +89,7 @@ __device__ vec3 getColor(const Ray &r, Hittable **world, curandState &randState)
 	return vec3(0.0f, 0.0f, 0.0f);
 }
 
-__global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool ignoreHistory, uint32_t frame, uint32_t width, uint32_t height, Hittable **world, curandState *randState)
+__global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool ignoreHistory, uint32_t frame, uint32_t width, uint32_t height, Hittable **world, curandState *randState, Camera camera)
 {
 	int threadIDx = threadIdx.x + blockIdx.x * blockDim.x;
 	int threadIDy = threadIdx.y + blockIdx.y * blockDim.y;
@@ -108,8 +108,7 @@ __global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool igno
 
 	float u = (threadIDx + curand_uniform(&localRandState)) / float(width);
 	float v = (threadIDy + curand_uniform(&localRandState)) / float(height);
-	Camera cam((float)width / height);
-	Ray r = cam.getRay(u, v);
+	Ray r = camera.getRay(u, v);
 	vec3 color = getColor(r, world, localRandState);
 
 	color += inputColor;
@@ -185,6 +184,12 @@ int main()
 	Hittable **d_world;
 	curandState *d_randState;
 
+	auto radians = [](float degree)
+	{
+		return degree * (1.0f / 180.0f) * 3.14159265358979323846f;
+	};
+
+	Camera camera(vec3(-2.0f, 2.0f, 1.0f), vec3(0.0f, 0.0f, -1.0f), vec3(0.0f, 1.0f, 0.0f), radians(90.0f), (float)width / height);
 
 	// init opengl
 	{
@@ -238,7 +243,7 @@ int main()
 		// do something with cuda
 		dim3 threads(8, 8, 1);
 		dim3 blocks((width + 7) / 8, (height + 7) / 8, 1);
-		traceKernel << <blocks, threads >> > (deviceMem, accumBuffer, frame == 0, frame, width, height, d_world, d_randState);
+		traceKernel << <blocks, threads >> > (deviceMem, accumBuffer, frame == 0, frame, width, height, d_world, d_randState, camera);
 		checkCudaErrors(cudaGetLastError());
 		checkCudaErrors(cudaDeviceSynchronize());
 
