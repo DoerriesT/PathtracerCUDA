@@ -153,6 +153,14 @@ __host__ __device__ vec3 reflect(const vec3 &v, const vec3 &n)
 	return v - 2.0f * dot(v, n) * n;
 }
 
+__host__ __device__ vec3 refract(const vec3 &uv, const vec3 &n, double etaiOverEtat) 
+{
+	auto cos_theta = dot(-uv, n);
+	vec3 rOutParallel = etaiOverEtat * (uv + cos_theta * n);
+	vec3 rOutPerp = -sqrt(1.0 - length_squared(rOutParallel)) * n;
+	return rOutParallel + rOutPerp;
+}
+
 __device__ inline vec3 random_unit_vec(curandState &randState)
 {
 	auto a = curand_uniform(&randState) * 2.0f * 3.14159265358979323846f;

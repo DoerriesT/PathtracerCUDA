@@ -129,7 +129,7 @@ __global__ void createWorld(Hittable **d_list, Hittable **d_world)
 	if (threadIdx.x == 0 && blockIdx.x == 0)
 	{
 		d_list[0] = new Sphere(vec3(0.0f, 0.0f, -1.0f), 0.5f,
-			new Lambertian(vec3(0.7f, 0.3f, 0.3f)));
+			new Lambertian(vec3(0.1f, 0.2f, 0.5f)));
 		d_list[1] = new Sphere(vec3(0.0f, -100.5f, -1.0f), 100.0f,
 			new Lambertian(vec3(0.8f, 0.8f, 0.0f)));
 
@@ -137,9 +137,12 @@ __global__ void createWorld(Hittable **d_list, Hittable **d_world)
 			new Metal(vec3(0.8f, 0.6f, 0.2f), 1.0f));
 
 		d_list[3] = new Sphere(vec3(-1.0f, 0.0f, -1.0f), 0.5f,
-			new Metal(vec3(0.8f, 0.8f, 0.8f), 0.3f));
+			new Dielectric(1.5f));
 
-		*d_world = new HittableList(d_list, 4);
+		d_list[4] = new Sphere(vec3(-1.0f, 0.0f, -1.0f), -0.45f,
+			new Dielectric(1.5f));
+
+		*d_world = new HittableList(d_list, 5);
 	}
 }
 
@@ -147,6 +150,9 @@ __global__ void freeWorld(Hittable **d_list, Hittable **d_world)
 {
 	delete d_list[0];
 	delete d_list[1];
+	delete d_list[2];
+	delete d_list[3];
+	delete d_list[4];
 	delete *d_world;
 }
 
@@ -204,7 +210,7 @@ int main()
 		// register with cuda
 		checkCudaErrors(cudaGraphicsGLRegisterBuffer(&pixelBufferCuda, pixelBufferGL, cudaGraphicsMapFlagsWriteDiscard));
 		checkCudaErrors(cudaMalloc((void **)&accumBuffer, width * height * sizeof(float4)));
-		checkCudaErrors(cudaMalloc((void **)&d_list, 4 * sizeof(Hittable *)));
+		checkCudaErrors(cudaMalloc((void **)&d_list, 5 * sizeof(Hittable *)));
 		checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(Hittable *)));
 		createWorld << <1, 1 >> > (d_list, d_world);
 		checkCudaErrors(cudaGetLastError());
