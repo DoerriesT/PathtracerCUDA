@@ -7,6 +7,7 @@
 #include "device_launch_parameters.h"
 
 #include "cuda_gl_interop.h"
+#include <curand_kernel.h>
 
 #include <stdio.h>
 
@@ -31,31 +32,63 @@ void check_cuda(cudaError_t result, char const *const func, const char *const fi
 	}
 }
 
-__host__ __device__ float frac(float x)
+__device__ vec3 random_unit_vector(curandState &randState)
 {
-	float i;
-	return modff(x, &i);
+	auto a = curand_uniform(&randState) * 2.0f * 3.14159265358979323846f;
+	auto z = curand_uniform(&randState) * 2.0f - 1.0f;
+	auto r = sqrt(1.0f - z * z);
+	return vec3(r * cos(a), r * sin(a), z);
 }
 
-__host__ __device__ float goldenRatioNoise(float seed, uint32_t i)
+__device__ vec3 random_in_hemisphere(const vec3 &normal, curandState &randState)
 {
-	const float goldRatio = (1.0f + sqrt(5.0f)) / 2.0f;
-	return frac(i * goldRatio + seed);
+	vec3 in_unit_sphere = normalize(random_unit_vector(randState));
+	return dot(in_unit_sphere, normal) > 0.0 ? in_unit_sphere : -in_unit_sphere;
 }
 
-__device__ vec3 getColor(const Ray &r, Hittable **world)
+__host__ __device__ float clamp(float x, float a, float b)
 {
-	HitRecord rec;
-	if ((*world)->hit(r, 0.0f, FLT_MAX, rec))
+	x = x < a ? a : x;
+	x = x > b ? b : x;
+	return x;
+}
+
+__host__ __device__ vec3 clamp(vec3 x, vec3 a, vec3 b)
+{
+	return vec3(clamp(x.x, 0.0f, 1.0f), clamp(x.y, 0.0f, 1.0f), clamp(x.z, 0.0f, 1.0f));
+}
+
+__host__ __device__ vec3 saturate(vec3 x)
+{
+	return clamp(x, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+}
+
+__device__ vec3 getColor(const Ray &r, Hittable **world, curandState &randState)
+{
+	float att = 1.0f;
+	Ray ray = r;
+	for (int iteration = 0; iteration < 5; ++iteration)
 	{
-		return rec.m_normal * 0.5f + 0.5f;
+		HitRecord rec;
+		if ((*world)->hit(ray, 0.001f, FLT_MAX, rec))
+		{
+			att *= 0.5f;
+			vec3 target = rec.m_p + rec.m_normal + random_unit_vector(randState);
+			ray = Ray(rec.m_p, target - rec.m_p);
+		}
+		else
+		{
+			vec3 unitDir = normalize(ray.m_dir);
+			float t = unitDir.y * 0.5f + 0.5f;
+			vec3 c = (1.0f - t) * vec3(1.0f, 1.0f, 1.0f) + t * vec3(0.5f, 0.7f, 1.0f);
+			return c * att;
+		}
 	}
-	vec3 unitDir = normalize(r.m_dir);
-	float t = unitDir.y * 0.5f + 0.5f;
-	return (1.0f - t) * vec3(1.0f, 1.0f, 1.0f) + t * vec3(0.5f, 0.7f, 1.0f);
+
+	return vec3(0.0f, 0.0f, 0.0f);
 }
 
-__global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool ignoreHistory, uint32_t frame, uint32_t width, uint32_t height, Hittable **world)
+__global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool ignoreHistory, uint32_t frame, uint32_t width, uint32_t height, Hittable **world, curandState *randState)
 {
 	int threadIDx = threadIdx.x + blockIdx.x * blockDim.x;
 	int threadIDy = threadIdx.y + blockIdx.y * blockDim.y;
@@ -65,32 +98,29 @@ __global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool igno
 		return;
 	}
 
-	uint32_t dstIdx = threadIDx + threadIDy * width;
-	float rngSeed = dstIdx / float(width * height);
+	const uint32_t dstIdx = threadIDx + threadIDy * width;
 
 	float4 inputColor4 = accumBuffer[dstIdx];
 	vec3 inputColor(inputColor4.x, inputColor4.y, inputColor4.z);
 
-	float u = (threadIDx + goldenRatioNoise(rngSeed, frame)) / float(width);
-	float v = (threadIDy + goldenRatioNoise(rngSeed, frame)) / float(height);
+	curandState &localRandState = randState[dstIdx];
+
+	float u = (threadIDx + curand_uniform(&localRandState)) / float(width);
+	float v = (threadIDy + curand_uniform(&localRandState)) / float(height);
 	Camera cam((float)width / height);
 	Ray r = cam.getRay(u, v);
-	vec3 color = getColor(r, world);
+	vec3 color = getColor(r, world, localRandState);
 
-	//float alpha = ignoreHistory ? 1.0f : 0.001f;
-	//color = color * alpha + inputColor * (1.0f - alpha);
 	color += inputColor;
 
 	vec3 resultColor = color / float(frame + 1.0f);
+	resultColor = saturate(resultColor);
+	resultColor.r = sqrt(resultColor.r);
+	resultColor.g = sqrt(resultColor.g);
+	resultColor.b = sqrt(resultColor.b);
 
 	accumBuffer[dstIdx] = { color.r, color.g, color.b, 1.0f };
 	resultBuffer[dstIdx] = { (unsigned char)(resultColor.x * 255.0f), (unsigned char)(resultColor.y * 255.0f) , (unsigned char)(resultColor.z * 255.0f), 255 };
-
-	//
-	//bool white = (threadID.x / 8) & 1 != 0;
-	//white = (threadID.y / 8) & 1 != 0 ? !white : white;
-	//unsigned char color = white ? 255 : 0;
-	//result[dstIdx] = { color , color , color , 255 };
 }
 
 __global__ void createWorld(Hittable **d_list, Hittable **d_world)
@@ -110,6 +140,21 @@ __global__ void freeWorld(Hittable **d_list, Hittable **d_world)
 	delete *d_world;
 }
 
+__global__ void initRandState(int width, int height, curandState *randState)
+{
+	int threadIDx = threadIdx.x + blockIdx.x * blockDim.x;
+	int threadIDy = threadIdx.y + blockIdx.y * blockDim.y;
+
+	if (threadIDx >= width || threadIDy >= height)
+	{
+		return;
+	}
+
+	uint32_t dstIdx = threadIDx + threadIDy * width;
+	//Each thread gets same seed, a different sequence number, no offset
+	curand_init(1984 + dstIdx, 0, 0, &randState[dstIdx]);
+}
+
 int main()
 {
 	Window window(1600, 900, "Pathtracer CUDA");
@@ -122,6 +167,7 @@ int main()
 	float4 *accumBuffer = nullptr;
 	Hittable **d_list;
 	Hittable **d_world;
+	curandState *d_randState;
 
 
 	// init opengl
@@ -153,6 +199,14 @@ int main()
 		createWorld << <1, 1 >> > (d_list, d_world);
 		checkCudaErrors(cudaGetLastError());
 		checkCudaErrors(cudaDeviceSynchronize());
+
+		checkCudaErrors(cudaMalloc((void **)&d_randState, width * height * sizeof(curandState)));
+
+		dim3 threads(8, 8, 1);
+		dim3 blocks((width + 7) / 8, (height + 7) / 8, 1);
+		initRandState << <blocks, threads >> > (width, height, d_randState);
+		checkCudaErrors(cudaGetLastError());
+		checkCudaErrors(cudaDeviceSynchronize());
 	}
 
 	uint32_t frame = 0;
@@ -168,7 +222,7 @@ int main()
 		// do something with cuda
 		dim3 threads(8, 8, 1);
 		dim3 blocks((width + 7) / 8, (height + 7) / 8, 1);
-		traceKernel << <blocks, threads >> > (deviceMem, accumBuffer, frame == 0, frame, width, height, d_world);
+		traceKernel << <blocks, threads >> > (deviceMem, accumBuffer, frame == 0, frame, width, height, d_world, d_randState);
 		checkCudaErrors(cudaGetLastError());
 		checkCudaErrors(cudaDeviceSynchronize());
 
@@ -199,6 +253,7 @@ int main()
 	checkCudaErrors(cudaGetLastError());
 	checkCudaErrors(cudaFree(d_list));
 	checkCudaErrors(cudaFree(d_world));
+	checkCudaErrors(cudaFree(d_randState));
 
 	// delete pixel buffer object
 	glDeleteBuffers(1, &pixelBufferGL);
