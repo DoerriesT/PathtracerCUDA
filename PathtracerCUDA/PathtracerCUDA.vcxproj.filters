@@ -15,9 +15,6 @@
     <ClCompile Include="src\UserInput.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\main.cu">
-      <Filter>src</Filter>
-    </ClCompile>
     <ClCompile Include="src\glad.c">
       <Filter>src</Filter>
     </ClCompile>
@@ -41,5 +38,20 @@
     <ClInclude Include="src\UserInput.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="src\vec3.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Ray.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Hittable.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Camera.h">
+      <Filter>src</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="src\main.cu" />
   </ItemGroup>
 </Project>
