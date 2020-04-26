@@ -108,7 +108,7 @@ __global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool igno
 
 	float u = (threadIDx + curand_uniform(&localRandState)) / float(width);
 	float v = (threadIDy + curand_uniform(&localRandState)) / float(height);
-	Ray r = camera.getRay(u, v);
+	Ray r = camera.getRay(u, v, localRandState);
 	vec3 color = getColor(r, world, localRandState);
 
 	color += inputColor;
@@ -189,7 +189,11 @@ int main()
 		return degree * (1.0f / 180.0f) * 3.14159265358979323846f;
 	};
 
-	Camera camera(vec3(-2.0f, 2.0f, 1.0f), vec3(0.0f, 0.0f, -1.0f), vec3(0.0f, 1.0f, 0.0f), radians(90.0f), (float)width / height);
+	vec3 lookfrom(3, 3, 2);
+	vec3 lookat(0, 0, -1);
+	vec3 vup(0, 1, 0);
+
+	Camera camera(lookfrom, lookat, vec3(0.0f, 1.0f, 0.0f), radians(20.0f), (float)width / height, 2.0f, length(lookfrom - lookat));
 
 	// init opengl
 	{

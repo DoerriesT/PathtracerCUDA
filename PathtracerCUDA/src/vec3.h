@@ -119,7 +119,7 @@ __host__ __device__ inline bool operator==(const vec3 &u, const vec3 &v)
 	return u.x == v.x && u.y == v.y && u.z == v.z;
 }
 
-__host__ __device__ inline double dot(const vec3 &u, const vec3 &v)
+__host__ __device__ inline float dot(const vec3 &u, const vec3 &v)
 {
 	return u.e[0] * v.e[0]
 		+ u.e[1] * v.e[1]
@@ -153,11 +153,11 @@ __host__ __device__ vec3 reflect(const vec3 &v, const vec3 &n)
 	return v - 2.0f * dot(v, n) * n;
 }
 
-__host__ __device__ vec3 refract(const vec3 &uv, const vec3 &n, double etaiOverEtat) 
+__host__ __device__ vec3 refract(const vec3 &uv, const vec3 &n, float etaiOverEtat) 
 {
 	auto cos_theta = dot(-uv, n);
 	vec3 rOutParallel = etaiOverEtat * (uv + cos_theta * n);
-	vec3 rOutPerp = -sqrt(1.0 - length_squared(rOutParallel)) * n;
+	vec3 rOutPerp = -sqrt(1.0f - length_squared(rOutParallel)) * n;
 	return rOutParallel + rOutPerp;
 }
 
@@ -169,11 +169,22 @@ __device__ inline vec3 random_unit_vec(curandState &randState)
 	return vec3(r * cos(a), r * sin(a), z);
 }
 
-__device__ vec3 random_in_unit_sphere(curandState &randState) {
+__device__ vec3 random_in_unit_sphere(curandState &randState) 
+{
 	vec3 p;
 	do
 	{
 		p = vec3(curand_uniform(&randState), curand_uniform(&randState), curand_uniform(&randState)) * 2.0f - 1.0f;
+	} while (length_squared(p) >= 1.0f);
+	return p;
+}
+
+__device__ vec3 random_in_unit_disk(curandState &randState)
+{
+	vec3 p;
+	do
+	{
+		p = vec3(curand_uniform(&randState), curand_uniform(&randState), 0.0f) * 2.0f - vec3(1.0f, 1.0f, 0.0f);
 	} while (length_squared(p) >= 1.0f);
 	return p;
 }

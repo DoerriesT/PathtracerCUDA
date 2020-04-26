@@ -4,34 +4,48 @@
 class Camera
 {
 public:
-	__host__ __device__ Camera(const vec3 &position, const vec3 &lookat, const vec3 &up, float fovy, float aspectRatio)
-		:m_aspectRatio(aspectRatio),
+	__host__ __device__ Camera(
+		const vec3 &position, 
+		const vec3 &lookat, 
+		const vec3 &up, 
+		float fovy, 
+		float aspectRatio,
+		float aperture,
+		float focusDist)
+		:m_lensRadius(aperture * 0.5f),
 		m_origin(position),
 		m_lowerLeftCorner(-1.0f, -1.0f, -1.0f),
 		m_horizontal(2.0f, 0.0f, 0.0f),
 		m_vertical(0.0f, 2.0f, 0.0f)
 	{
 		auto halfHeight = tan(fovy * 0.5f);
-		auto halfWidth = m_aspectRatio * halfHeight;
-		vec3 w = normalize(m_origin - lookat);
-		vec3 u = normalize(cross(up, w));
-		vec3 v = cross(w, u);
+		auto halfWidth = aspectRatio * halfHeight;
+		m_w = normalize(m_origin - lookat);
+		m_u = normalize(cross(up, m_w));
+		m_v = cross(m_w, m_u);
 
-		m_lowerLeftCorner = m_origin - halfWidth * u - halfHeight * v - w;
-		m_horizontal = 2.0f * halfWidth * u;
-		m_vertical = 2.0f * halfHeight * v;
+		m_lowerLeftCorner = m_origin 
+			- halfWidth * m_u * focusDist
+			- halfHeight * m_v * focusDist
+			- m_w * focusDist;
+		m_horizontal = 2.0f * halfWidth * m_u * focusDist;
+		m_vertical = 2.0f * halfHeight * m_v * focusDist;
 	}
 
-	__device__ Ray getRay(float u, float v)
+	__device__ Ray getRay(float s, float t, curandState &randState)
 	{
-		vec3 dir(m_lowerLeftCorner + u * m_horizontal + v * m_vertical - m_origin);
-		return Ray(m_origin, dir);
+		vec3 rd = m_lensRadius * random_in_unit_disk(randState);
+		vec3 offset = m_u *rd.x + m_v * rd.y;
+		return Ray(m_origin + offset, m_lowerLeftCorner + s * m_horizontal + t * m_vertical - m_origin - offset);
 	}
 
 public:
-	float m_aspectRatio;
+	float m_lensRadius;
 	vec3 m_origin;
 	vec3 m_lowerLeftCorner;
 	vec3 m_horizontal;
 	vec3 m_vertical;
+	vec3 m_u;
+	vec3 m_v;
+	vec3 m_w;
 };
