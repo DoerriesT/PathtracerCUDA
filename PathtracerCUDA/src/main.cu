@@ -19,6 +19,7 @@
 #include "Hittable.h"
 #include "Camera.h"
 #include <random>
+#include "BVH.h"
 
 #define checkCudaErrors(val) check_cuda( (val), #val, __FILE__, __LINE__ )
 void check_cuda(cudaError_t result, char const *const func, const char *const file, int const line)
@@ -75,14 +76,82 @@ __device__ bool hitList(uint32_t hittableCount, Hittable *world, const Ray &r, f
 	return hitAnything;
 }
 
-__device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, curandState &randState)
+__device__ bool hitBVH(uint32_t hittableCount, Hittable *world, uint32_t bvhNodesCount, BVHNode *bvhNodes, const Ray &r, float t_min, float t_max, HitRecord &rec)
+{
+	vec3 invRayDir;
+	invRayDir[0] = 1.0f / (r.m_dir[0] != 0.0f ? r.m_dir[0] : pow(2.0f, -80.0f));
+	invRayDir[1] = 1.0f / (r.m_dir[1] != 0.0f ? r.m_dir[1] : pow(2.0f, -80.0f));
+	invRayDir[2] = 1.0f / (r.m_dir[2] != 0.0f ? r.m_dir[2] : pow(2.0f, -80.0f));
+	vec3 originDivDir = r.m_origin * invRayDir;
+	bool dirIsNeg[3] = { invRayDir.x < 0.0f, invRayDir.y < 0.0f, invRayDir.z < 0.0f };
+
+	uint32_t nodesToVisit[32];
+	uint32_t toVisitOffset = 0;
+	uint32_t currentNodeIndex = 0;
+
+	uint32_t elemIdx = UINT32_MAX;
+	uint32_t iterations = 0;
+
+	while (true)
+	{
+		++iterations;
+		const BVHNode &node = bvhNodes[currentNodeIndex];
+		if (node.m_aabb.hit(r, t_min, t_max))
+		{
+			const uint32_t primitiveCount = (node.m_primitiveCountAxis >> 16);
+			if (primitiveCount > 0)
+			{
+				for (uint32_t i = 0; i < primitiveCount; ++i)
+				{
+					Hittable &elem = world[node.m_offset + i];
+					if (elem.hit(r, t_min, t_max, rec))
+					{
+						t_max = rec.m_t;
+						elemIdx = node.m_offset + i;
+					}
+				}
+				if (toVisitOffset == 0)
+				{
+					break;
+				}
+				currentNodeIndex = nodesToVisit[--toVisitOffset];
+			}
+			else
+			{
+				if (dirIsNeg[(node.m_primitiveCountAxis >> 8) & 0xFF])
+				{
+					nodesToVisit[toVisitOffset++] = currentNodeIndex + 1;
+					currentNodeIndex = node.m_offset;
+				}
+				else
+				{
+					nodesToVisit[toVisitOffset++] = node.m_offset;
+					currentNodeIndex = currentNodeIndex + 1;
+				}
+			}
+		}
+		else
+		{
+			if (toVisitOffset == 0)
+			{
+				break;
+			}
+			currentNodeIndex = nodesToVisit[--toVisitOffset];
+		}
+	}
+
+	return elemIdx != UINT32_MAX;
+}
+
+__device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, uint32_t bvhNodesCount, BVHNode *bvhNodes, curandState &randState)
 {
 	vec3 att = vec3(1.0f, 1.0f, 1.0f);
 	Ray ray = r;
 	for (int iteration = 0; iteration < 5; ++iteration)
 	{
 		HitRecord rec;
-		if (hitList(hittableCount, world, ray, 0.001f, FLT_MAX, rec))
+		if (hitBVH(hittableCount, world, bvhNodesCount, bvhNodes, ray, 0.001f, FLT_MAX, rec))
+		//if (hitList(hittableCount, world, ray, 0.001f, FLT_MAX, rec))
 		{
 			Ray scattered;
 			vec3 attenuation;
@@ -108,7 +177,7 @@ __device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, 
 	return vec3(0.0f, 0.0f, 0.0f);
 }
 
-__global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool ignoreHistory, uint32_t frame, uint32_t width, uint32_t height, uint32_t hittableCount, Hittable *world, curandState *randState, Camera camera)
+__global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool ignoreHistory, uint32_t frame, uint32_t width, uint32_t height, uint32_t hittableCount, Hittable *world, uint32_t bvhNodesCount, BVHNode *bvhNodes, curandState *randState, Camera camera)
 {
 	int threadIDx = threadIdx.x + blockIdx.x * blockDim.x;
 	int threadIDy = threadIdx.y + blockIdx.y * blockDim.y;
@@ -128,7 +197,7 @@ __global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool igno
 	float u = (threadIDx + curand_uniform(&localRandState)) / float(width);
 	float v = (threadIDy + curand_uniform(&localRandState)) / float(height);
 	Ray r = camera.getRay(u, v, localRandState);
-	vec3 color = getColor(r, hittableCount, world, localRandState);
+	vec3 color = getColor(r, hittableCount, world, bvhNodesCount, bvhNodes, localRandState);
 
 	color += inputColor;
 
@@ -168,9 +237,11 @@ int main()
 	cudaGraphicsResource *pixelBufferCuda = nullptr;
 	float4 *accumBuffer = nullptr;
 	Hittable *hittables;
+	BVHNode *bvhNodes;
 	curandState *d_randState;
 	uint32_t entityListSize = 22 * 22 + 4;
 	uint32_t hittablesCount = 0;
+	uint32_t bvhNodesCount = 0;
 
 	cudaEvent_t startEvent, stopEvent;
 
@@ -187,6 +258,8 @@ int main()
 	float aspectRatio = (float)width / height;
 
 	Camera camera(lookfrom, lookat, vup, radians(20.0f), aspectRatio, aperture, dist_to_focus);
+
+	BVH bvh;
 
 	// init opengl
 	{
@@ -274,11 +347,20 @@ int main()
 			
 			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Material(Material::Type::METAL, vec3(0.7f, 0.6f, 0.5f), 0.0f), { vec3(4.0f, 1.0f, 0.0f), 1.0f }));
 
+
+			bvh.build(hittablesCpu.size(), hittablesCpu.data(), 4);
+			assert(bvh.validate());
+			hittablesCpu = bvh.getElements();
+			const auto &bvhNodesCpu = bvh.getNodes();
+
 			checkCudaErrors(cudaMalloc((void **)&hittables, hittablesCpu.size() * sizeof(Hittable)));
+			checkCudaErrors(cudaMalloc((void **)&bvhNodes, bvhNodesCpu.size() * sizeof(BVHNode)));
 
 			checkCudaErrors(cudaMemcpy(hittables, hittablesCpu.data(), hittablesCpu.size() * sizeof(Hittable), cudaMemcpyKind::cudaMemcpyHostToDevice));
+			checkCudaErrors(cudaMemcpy(bvhNodes, bvhNodesCpu.data(), bvhNodesCpu.size() * sizeof(BVHNode), cudaMemcpyKind::cudaMemcpyHostToDevice));
 
 			hittablesCount = (uint32_t)hittablesCpu.size();
+			bvhNodesCount = (uint32_t)bvhNodesCpu.size();
 		}
 	}
 
@@ -296,7 +378,7 @@ int main()
 		checkCudaErrors(cudaEventRecord(startEvent));
 		dim3 threads(8, 8, 1);
 		dim3 blocks((width + 7) / 8, (height + 7) / 8, 1);
-		traceKernel << <blocks, threads >> > (deviceMem, accumBuffer, frame == 0, frame, width, height, hittablesCount, hittables, d_randState, camera);
+		traceKernel << <blocks, threads >> > (deviceMem, accumBuffer, frame == 0, frame, width, height, hittablesCount, hittables, bvhNodesCount, bvhNodes, d_randState, camera);
 		checkCudaErrors(cudaEventRecord(stopEvent));
 		checkCudaErrors(cudaGetLastError());
 		checkCudaErrors(cudaDeviceSynchronize());
@@ -329,6 +411,7 @@ int main()
 
 	// free cuda memory
 	checkCudaErrors(cudaFree(hittables));
+	checkCudaErrors(cudaFree(bvhNodes));
 	checkCudaErrors(cudaFree(d_randState));
 
 	// delete pixel buffer object

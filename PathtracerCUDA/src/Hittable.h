@@ -1,10 +1,11 @@
 #pragma once
 #include "Ray.h"
 #include "vec3.h"
+#include "AABB.h"
 
 class Material;
 
-__host__ __device__ float fresnelSchlick(float cosine, float ior)
+__host__ __device__ inline float fresnelSchlick(float cosine, float ior)
 {
 	auto r0 = (1.0f - ior) / (1.0f + ior);
 	r0 = r0 * r0;
@@ -15,7 +16,7 @@ __host__ __device__ float fresnelSchlick(float cosine, float ior)
 	return r0 + (1.0f - r0) * pow(1.0f - cosine, 5.0f);
 }
 
-__host__ __device__ float ffmin(float a, float b)
+__host__ __device__ inline float ffmin(float a, float b)
 {
 	return a < b ? a : b;
 }
@@ -43,7 +44,7 @@ public:
 		LAMBERTIAN, METAL, DIELECTRIC
 	};
 
-	__host__ __device__ Material(Type type, const vec3 &albedo, float fuzz = 0.0f, float ior = 1.0f)
+	__host__ __device__ Material(Type type = LAMBERTIAN, const vec3 &albedo = vec3(1.0f), float fuzz = 0.0f, float ior = 1.0f)
 		:m_type(type),
 		m_albedo(albedo),
 		m_fuzz(fuzz),
@@ -139,6 +140,13 @@ public:
 		Sphere m_sphere;
 	};
 
+	__host__ __device__ Hittable()
+		:m_type(SPHERE),
+		m_material(),
+		m_payload({vec3(0.0f), 1.0f})
+	{
+	}
+
 	__host__ __device__ Hittable(Type type, const Material &material, const Payload &payload)
 		: m_type(type),
 		m_material(material),
@@ -152,6 +160,18 @@ public:
 		{
 		case SPHERE:
 			return hitSphere(r, tMin, tMax, rec);
+		default:
+			break;
+		}
+		return false;
+	}
+
+	__host__ __device__ bool boundingBox(float t0, float t1, AABB &outputBox) const
+	{
+		switch (m_type)
+		{
+		case SPHERE:
+			return sphereBoundingBox(t0, t1, outputBox);
 		default:
 			break;
 		}
@@ -198,5 +218,15 @@ private:
 		}
 
 		return false;
+	}
+
+	__host__ __device__ bool sphereBoundingBox(float t0, float t1, AABB &outputBox) const
+	{
+		const auto &sphere = m_payload.m_sphere;
+		outputBox = AABB(
+			sphere.m_center - vec3(sphere.m_radius, sphere.m_radius, sphere.m_radius),
+			sphere.m_center + vec3(sphere.m_radius, sphere.m_radius, sphere.m_radius)
+		);
+		return true;
 	}
 };

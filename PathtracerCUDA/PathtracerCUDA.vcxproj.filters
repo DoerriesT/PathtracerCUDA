@@ -18,6 +18,9 @@
     <ClCompile Include="src\glad.c">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\BVH.cpp">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Window.h">
@@ -48,6 +51,12 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\Camera.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\AABB.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\BVH.h">
       <Filter>src</Filter>
     </ClInclude>
   </ItemGroup>
