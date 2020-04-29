@@ -19,6 +19,7 @@
 #include "Hittable.h"
 #include "Camera.h"
 #include "Material.h"
+#include <random>
 
 #define checkCudaErrors(val) check_cuda( (val), #val, __FILE__, __LINE__ )
 void check_cuda(cudaError_t result, char const *const func, const char *const file, int const line)
@@ -56,14 +57,33 @@ __host__ __device__ vec3 saturate(vec3 x)
 	return clamp(x, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
 }
 
-__device__ vec3 getColor(const Ray &r, Hittable **world, curandState &randState)
+__device__ bool hitList(uint32_t hittableCount, Hittable2 *world, const Ray &r, float t_min, float t_max, HitRecord2 &rec)
+{
+	HitRecord2 tempRec;
+	bool hitAnything = false;
+	auto closest = t_max;
+
+	for (uint32_t i = 0; i < hittableCount; ++i)
+	{
+		if (world[i].hit(r, t_min, closest, tempRec))
+		{
+			hitAnything = true;
+			closest = tempRec.m_t;
+			rec = tempRec;
+		}
+	}
+
+	return hitAnything;
+}
+
+__device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable2 *world, curandState &randState)
 {
 	vec3 att = vec3(1.0f, 1.0f, 1.0f);
 	Ray ray = r;
 	for (int iteration = 0; iteration < 5; ++iteration)
 	{
-		HitRecord rec;
-		if ((*world)->hit(ray, 0.001f, FLT_MAX, rec))
+		HitRecord2 rec;
+		if (hitList(hittableCount, world, ray, 0.001f, FLT_MAX, rec))
 		{
 			Ray scattered;
 			vec3 attenuation;
@@ -89,7 +109,7 @@ __device__ vec3 getColor(const Ray &r, Hittable **world, curandState &randState)
 	return vec3(0.0f, 0.0f, 0.0f);
 }
 
-__global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool ignoreHistory, uint32_t frame, uint32_t width, uint32_t height, Hittable **world, curandState *randState, Camera camera)
+__global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool ignoreHistory, uint32_t frame, uint32_t width, uint32_t height, uint32_t hittableCount, Hittable2 *world, curandState *randState, Camera camera)
 {
 	int threadIDx = threadIdx.x + blockIdx.x * blockDim.x;
 	int threadIDy = threadIdx.y + blockIdx.y * blockDim.y;
@@ -109,7 +129,7 @@ __global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool igno
 	float u = (threadIDx + curand_uniform(&localRandState)) / float(width);
 	float v = (threadIDy + curand_uniform(&localRandState)) / float(height);
 	Ray r = camera.getRay(u, v, localRandState);
-	vec3 color = getColor(r, world, localRandState);
+	vec3 color = getColor(r, hittableCount, world, localRandState);
 
 	color += inputColor;
 
@@ -206,10 +226,14 @@ int main()
 	GLuint pixelBufferGL = 0;
 	cudaGraphicsResource *pixelBufferCuda = nullptr;
 	float4 *accumBuffer = nullptr;
+	Hittable2 *hittables;
 	Hittable **d_list;
 	Hittable **d_world;
 	curandState *d_randState;
 	uint32_t entityListSize = 22 * 22 + 4;
+	uint32_t hittablesCount = 0;
+
+	cudaEvent_t startEvent, stopEvent;
 
 	auto radians = [](float degree)
 	{
@@ -219,8 +243,8 @@ int main()
 	vec3 lookfrom(13, 2, 3);
 	vec3 lookat(0, 0, 0);
 	vec3 vup(0, 1, 0);
-	auto dist_to_focus = 10.0;
-	auto aperture = 0.1;
+	float dist_to_focus = 10.0f;
+	float aperture = 0.1f;
 	float aspectRatio = (float)width / height;
 
 	Camera camera(lookfrom, lookat, vup, radians(20.0f), aspectRatio, aperture, dist_to_focus);
@@ -269,7 +293,64 @@ int main()
 		checkCudaErrors(cudaGetLastError());
 		checkCudaErrors(cudaDeviceSynchronize());
 
-		
+
+		{
+			std::default_random_engine e;
+			std::uniform_real_distribution<float> d(0.0f, 1.0f);
+
+			std::vector<Hittable2> hittablesCpu;
+			hittablesCpu.reserve(entityListSize);
+
+			hittablesCpu.push_back(Hittable2(Hittable2::Type::SPHERE, Material2(Material2::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f)), { vec3(0.0f, -1000.0f, 0.0f), 1000.0f }));
+
+			for (int a = -11; a < 11; ++a)
+			{
+				for (int b = -11; b < 11; ++b)
+				{
+					auto chooseMat = d(e);
+					vec3 center(a + 0.9f * d(e), 0.2f, b + 0.9f * d(e));
+					if (length(center - vec3(4.0f, 0.2f, 0.0f)) > 0.9f)
+					{
+						if (chooseMat < 0.8f)
+						{
+							// diffuse
+							auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
+							hittablesCpu.push_back(Hittable2(Hittable2::Type::SPHERE, Material2(Material2::Type::LAMBERTIAN, albedo), { center, 0.2f }));
+						}
+						else if (chooseMat < 0.95f)
+						{
+							// metal
+							auto albedo = vec3(d(e), d(e), d(e)) * 0.5f + 0.5f;
+							auto fuzz = d(e) * 0.5f;
+							hittablesCpu.push_back(Hittable2(Hittable2::Type::SPHERE, Material2(Material2::Type::METAL, albedo, fuzz), { center, 0.2f }));
+						}
+						else
+						{
+							// glass
+							hittablesCpu.push_back(Hittable2(Hittable2::Type::SPHERE, Material2(Material2::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f), { center, 0.2f }));
+						}
+					}
+				}
+			}
+			
+			hittablesCpu.push_back(Hittable2(Hittable2::Type::SPHERE, Material2(Material2::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f), { vec3(0.0f, 1.0f, 0.0f), 1.0f }));
+			
+			hittablesCpu.push_back(Hittable2(Hittable2::Type::SPHERE, Material2(Material2::Type::LAMBERTIAN, vec3(0.4f, 0.2f, 0.1f)), { vec3(-4.0f, 1.0f, 0.0f), 1.0f }));
+			
+			hittablesCpu.push_back(Hittable2(Hittable2::Type::SPHERE, Material2(Material2::Type::METAL, vec3(0.7f, 0.6f, 0.5f), 0.0f), { vec3(4.0f, 1.0f, 0.0f), 1.0f }));
+
+			checkCudaErrors(cudaMalloc((void **)&hittables, hittablesCpu.size() * sizeof(Hittable2)));
+
+			checkCudaErrors(cudaMemcpy(hittables, hittablesCpu.data(), hittablesCpu.size() * sizeof(Hittable2), cudaMemcpyKind::cudaMemcpyHostToDevice));
+
+			hittablesCount = (uint32_t)hittablesCpu.size();
+
+			checkCudaErrors(cudaGetLastError());
+			checkCudaErrors(cudaDeviceSynchronize());
+		}
+
+		cudaEventCreate(&startEvent);
+		cudaEventCreate(&stopEvent);
 	}
 
 	uint32_t frame = 0;
@@ -283,11 +364,17 @@ int main()
 		checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&deviceMem, &numBytes, pixelBufferCuda));
 
 		// do something with cuda
+		checkCudaErrors(cudaEventRecord(startEvent));
 		dim3 threads(8, 8, 1);
 		dim3 blocks((width + 7) / 8, (height + 7) / 8, 1);
-		traceKernel << <blocks, threads >> > (deviceMem, accumBuffer, frame == 0, frame, width, height, d_world, d_randState, camera);
+		traceKernel << <blocks, threads >> > (deviceMem, accumBuffer, frame == 0, frame, width, height, hittablesCount, hittables, d_randState, camera);
+		checkCudaErrors(cudaEventRecord(stopEvent));
 		checkCudaErrors(cudaGetLastError());
 		checkCudaErrors(cudaDeviceSynchronize());
+
+		checkCudaErrors(cudaEventSynchronize(stopEvent));
+		float milliseconds = 0;
+		checkCudaErrors(cudaEventElapsedTime(&milliseconds, startEvent, stopEvent));
 
 		checkCudaErrors(cudaGraphicsUnmapResources(1, &pixelBufferCuda));
 
@@ -302,7 +389,7 @@ int main()
 		assert(glGetError() == GL_NO_ERROR);
 
 		window.present();
-		window.setTitle(std::to_string(frame));
+		window.setTitle(std::to_string(frame) + " Frametime: " + std::to_string(milliseconds));
 		++frame;
 	}
 

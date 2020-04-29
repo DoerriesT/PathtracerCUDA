@@ -6,22 +6,6 @@ struct Ray;
 struct HitRecord;
 struct vec3;
 
-__device__ float fresnelSchlick(float cosine, float ior)
-{
-	auto r0 = (1.0f - ior) / (1.0f + ior);
-	r0 = r0 * r0;
-	float powerTerm = 1.0f - cosine;
-	powerTerm *= powerTerm;
-	powerTerm *= powerTerm;
-	powerTerm *= 1.0f - cosine;
-	return r0 + (1.0f - r0) * pow(1.0f - cosine, 5.0f);
-}
-
-__device__ float ffmin(float a, float b)
-{
-	return a < b ? a : b;
-}
-
 class Material
 {
 public:
