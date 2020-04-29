@@ -3,7 +3,6 @@
 #include "vec3.h"
 
 class Material;
-class Material2;
 
 __host__ __device__ float fresnelSchlick(float cosine, float ior)
 {
@@ -21,11 +20,11 @@ __host__ __device__ float ffmin(float a, float b)
 	return a < b ? a : b;
 }
 
-struct HitRecord2
+struct HitRecord
 {
 	vec3 m_p;
 	vec3 m_normal;
-	const Material2 *m_material;
+	const Material *m_material;
 	float m_t;
 	bool m_frontFace;
 
@@ -36,7 +35,7 @@ struct HitRecord2
 	}
 };
 
-class Material2
+class Material
 {
 public:
 	enum Type : uint32_t
@@ -44,7 +43,7 @@ public:
 		LAMBERTIAN, METAL, DIELECTRIC
 	};
 
-	__host__ __device__ Material2(Type type, const vec3 &albedo, float fuzz = 0.0f, float ior = 1.0f)
+	__host__ __device__ Material(Type type, const vec3 &albedo, float fuzz = 0.0f, float ior = 1.0f)
 		:m_type(type),
 		m_albedo(albedo),
 		m_fuzz(fuzz),
@@ -53,15 +52,15 @@ public:
 
 	}
 
-	__device__ bool scatter(const Ray &rIn, const HitRecord2 &rec, curandState &randState, vec3 &attenuation, Ray &scattered)  const
+	__device__ bool scatter(const Ray &rIn, const HitRecord &rec, curandState &randState, vec3 &attenuation, Ray &scattered)  const
 	{
 		switch (m_type)
 		{
-		case Material2::LAMBERTIAN:
+		case Material::LAMBERTIAN:
 			return scatterLambertian(rIn, rec, randState, attenuation, scattered);
-		case Material2::METAL:
+		case Material::METAL:
 			return scatterMetal(rIn, rec, randState, attenuation, scattered);
-		case Material2::DIELECTRIC:
+		case Material::DIELECTRIC:
 			return scatterDielectric(rIn, rec, randState, attenuation, scattered);
 		default:
 			break;
@@ -75,7 +74,7 @@ private:
 	float m_fuzz;
 	float m_ior;
 
-	__device__ bool scatterLambertian(const Ray &rIn, const HitRecord2 &rec, curandState &randState, vec3 &attenuation, Ray &scattered) const
+	__device__ bool scatterLambertian(const Ray &rIn, const HitRecord &rec, curandState &randState, vec3 &attenuation, Ray &scattered) const
 	{
 		vec3 scatterDir = rec.m_normal + random_unit_vec(randState);
 		scattered = Ray(rec.m_p, scatterDir);
@@ -83,7 +82,7 @@ private:
 		return true;
 	}
 
-	__device__ bool scatterMetal(const Ray &rIn, const HitRecord2 &rec, curandState &randState, vec3 &attenuation, Ray &scattered) const
+	__device__ bool scatterMetal(const Ray &rIn, const HitRecord &rec, curandState &randState, vec3 &attenuation, Ray &scattered) const
 	{
 		vec3 reflected = reflect(normalize(rIn.direction()), rec.m_normal);
 		scattered = Ray(rec.m_p, reflected + m_fuzz * random_in_unit_sphere(randState));
@@ -91,7 +90,7 @@ private:
 		return (dot(scattered.direction(), rec.m_normal) > 0.0f);
 	}
 
-	__device__ bool scatterDielectric(const Ray &rIn, const HitRecord2 &rec, curandState &randState, vec3 &attenuation, Ray &scattered) const
+	__device__ bool scatterDielectric(const Ray &rIn, const HitRecord &rec, curandState &randState, vec3 &attenuation, Ray &scattered) const
 	{
 		attenuation = vec3(1.0f, 1.0f, 1.0f);
 		float etaiOverEtat = rec.m_frontFace ? 1.0f / m_ior : m_ior;
@@ -121,13 +120,13 @@ private:
 	}
 };
 
-struct Sphere2
+struct Sphere
 {
 	vec3 m_center;
 	float m_radius;
 };
 
-class Hittable2
+class Hittable
 {
 public:
 	enum Type : uint32_t
@@ -137,17 +136,17 @@ public:
 
 	union Payload
 	{
-		Sphere2 m_sphere;
+		Sphere m_sphere;
 	};
 
-	__host__ __device__ Hittable2(Type type, const Material2 &material, const Payload &payload)
+	__host__ __device__ Hittable(Type type, const Material &material, const Payload &payload)
 		: m_type(type),
 		m_material(material),
 		m_payload(payload)
 	{
 	}
 
-	__host__ __device__ bool hit(const Ray &r, float tMin, float tMax, HitRecord2 &rec) const
+	__host__ __device__ bool hit(const Ray &r, float tMin, float tMax, HitRecord &rec) const
 	{
 		switch (m_type)
 		{
@@ -161,10 +160,10 @@ public:
 
 private:
 	Type m_type;
-	Material2 m_material;
+	Material m_material;
 	Payload m_payload;
 
-	__host__ __device__ bool hitSphere(const Ray &r, float tMin, float tMax, HitRecord2 &rec) const
+	__host__ __device__ bool hitSphere(const Ray &r, float tMin, float tMax, HitRecord &rec) const
 	{
 		const auto &sphere = m_payload.m_sphere;
 		vec3 oc = r.origin() - sphere.m_center;
@@ -201,109 +200,3 @@ private:
 		return false;
 	}
 };
-
-struct HitRecord
-{
-	vec3 m_p;
-	vec3 m_normal;
-	Material *m_material;
-	float m_t;
-	bool m_frontFace;
-
-	__device__ inline void setFaceNormal(const Ray &r, const vec3 &outwardNormal)
-	{
-		m_frontFace = dot(r.direction(), outwardNormal) < 0.0f;
-		m_normal = m_frontFace ? outwardNormal : -outwardNormal;
-	}
-};
-
-class Hittable
-{
-public:
-	__device__ virtual bool hit(const Ray &r, float t_min, float t_max, HitRecord &rec) const = 0;
-};
-
-class HittableList : public Hittable
-{
-public:
-	__device__ HittableList() {}
-	__device__ HittableList(Hittable **l, int n) : m_list(l), m_listSize(n) {}
-	__device__ virtual bool hit(const Ray &r, float t_min, float t_max, HitRecord &rec) const;
-
-public:
-	Hittable **m_list;
-	int m_listSize;
-};
-
-__device__ bool HittableList::hit(const Ray &r, float t_min, float t_max, HitRecord &rec) const
-{
-	HitRecord tempRec;
-	bool hitAnything = false;
-	auto closest = t_max;
-
-	for (int i = 0; i < m_listSize; ++i)
-	{
-		if (m_list[i]->hit(r, t_min, closest, tempRec))
-		{
-			hitAnything = true;
-			closest = tempRec.m_t;
-			rec = tempRec;
-		}
-	}
-
-	return hitAnything;
-}
-
-class Sphere : public Hittable
-{
-public:
-	__device__ Sphere() {}
-	__device__ Sphere(vec3 center, float radius, Material *material) 
-		: m_center(center), 
-		m_radius(radius),
-		m_material(material)
-	{};
-
-	__device__ virtual bool hit(const Ray &r, float t_min, float t_max, HitRecord &rec) const override;
-
-public:
-	vec3 m_center;
-	float m_radius;
-	Material *m_material;
-};
-
-__device__ bool Sphere::hit(const Ray &r, float t_min, float t_max, HitRecord &rec) const
-{
-	vec3 oc = r.origin() - m_center;
-	auto a = length_squared(r.direction());
-	auto half_b = dot(oc, r.direction());
-	auto c = length_squared(oc) - m_radius * m_radius;
-	auto discriminant = half_b * half_b - a * c;
-
-	if (discriminant > 0.0f)
-	{
-		auto root = sqrt(discriminant);
-		auto temp = (-half_b - root) / a;
-		if (temp < t_max && temp > t_min)
-		{
-			rec.m_t = temp;
-			rec.m_p = r.at(rec.m_t);
-			vec3 outwardNormal = (rec.m_p - m_center) / m_radius;
-			rec.setFaceNormal(r, outwardNormal);
-			rec.m_material = m_material;
-			return true;
-		}
-		temp = (-half_b + root) / a;
-		if (temp < t_max && temp > t_min)
-		{
-			rec.m_t = temp;
-			rec.m_p = r.at(rec.m_t);
-			vec3 outwardNormal = (rec.m_p - m_center) / m_radius;
-			rec.setFaceNormal(r, outwardNormal);
-			rec.m_material = m_material;
-			return true;
-		}
-	}
-
-	return false;
-}

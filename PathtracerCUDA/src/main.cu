@@ -18,7 +18,6 @@
 #include "vec3.h"
 #include "Hittable.h"
 #include "Camera.h"
-#include "Material.h"
 #include <random>
 
 #define checkCudaErrors(val) check_cuda( (val), #val, __FILE__, __LINE__ )
@@ -57,9 +56,9 @@ __host__ __device__ vec3 saturate(vec3 x)
 	return clamp(x, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
 }
 
-__device__ bool hitList(uint32_t hittableCount, Hittable2 *world, const Ray &r, float t_min, float t_max, HitRecord2 &rec)
+__device__ bool hitList(uint32_t hittableCount, Hittable *world, const Ray &r, float t_min, float t_max, HitRecord &rec)
 {
-	HitRecord2 tempRec;
+	HitRecord tempRec;
 	bool hitAnything = false;
 	auto closest = t_max;
 
@@ -76,13 +75,13 @@ __device__ bool hitList(uint32_t hittableCount, Hittable2 *world, const Ray &r, 
 	return hitAnything;
 }
 
-__device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable2 *world, curandState &randState)
+__device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, curandState &randState)
 {
 	vec3 att = vec3(1.0f, 1.0f, 1.0f);
 	Ray ray = r;
 	for (int iteration = 0; iteration < 5; ++iteration)
 	{
-		HitRecord2 rec;
+		HitRecord rec;
 		if (hitList(hittableCount, world, ray, 0.001f, FLT_MAX, rec))
 		{
 			Ray scattered;
@@ -109,7 +108,7 @@ __device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable2 *world,
 	return vec3(0.0f, 0.0f, 0.0f);
 }
 
-__global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool ignoreHistory, uint32_t frame, uint32_t width, uint32_t height, uint32_t hittableCount, Hittable2 *world, curandState *randState, Camera camera)
+__global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool ignoreHistory, uint32_t frame, uint32_t width, uint32_t height, uint32_t hittableCount, Hittable *world, curandState *randState, Camera camera)
 {
 	int threadIDx = threadIdx.x + blockIdx.x * blockDim.x;
 	int threadIDy = threadIdx.y + blockIdx.y * blockDim.y;
@@ -143,64 +142,6 @@ __global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool igno
 	resultBuffer[dstIdx] = { (unsigned char)(resultColor.x * 255.0f), (unsigned char)(resultColor.y * 255.0f) , (unsigned char)(resultColor.z * 255.0f), 255 };
 }
 
-__global__ void createWorld(Hittable **d_list, Hittable **d_world, curandState *randState, uint32_t listSize)
-{
-	if (threadIdx.x == 0 && blockIdx.x == 0)
-	{
-		uint32_t entityCount = 0;
-
-		d_list[entityCount++] = new Sphere(vec3(0.0f, -1000.0f, 0.0f), 1000.0f,
-			new Lambertian(vec3(0.5f, 0.5f, 0.5f)));
-
-		for (int a = -11; a < 11; ++a)
-		{
-			for (int b = -11; b < 11; ++b)
-			{
-				auto chooseMat = curand_uniform(randState);
-				vec3 center(a + 0.9f * curand_uniform(randState), 0.2f, b + 0.9f * curand_uniform(randState));
-				if (length(center - vec3(4.0f, 0.2f, 0.0f)) > 0.9f)
-				{
-					if (chooseMat < 0.8f)
-					{
-						// diffuse
-						auto albedo = random_vec(*randState) * random_vec(*randState);
-						d_list[entityCount++] = new Sphere(center, 0.2f, new Lambertian(albedo));
-					}
-					else if (chooseMat < 0.95f)
-					{
-						// metal
-						auto albedo = random_vec(*randState) * 0.5f + 0.5f;
-						auto fuzz = curand_uniform(randState) * 0.5f;
-						d_list[entityCount++] = new Sphere(center, 0.2f, new Metal(albedo, fuzz));
-					}
-					else
-					{
-						// glass
-						d_list[entityCount++] = new Sphere(center, 0.2f, new Dielectric(1.5f));
-					}
-				}
-			}
-		}
-
-		d_list[entityCount++] = new Sphere(vec3(0.0f, 1.0f, 0.0f), 1.0f, new Dielectric(1.5f));
-
-		d_list[entityCount++] = new Sphere(vec3(-4.0f, 1.0f, 0.0f), 1.0f, new Lambertian(vec3(0.4f, 0.2f, 0.1f)));
-
-		d_list[entityCount++] = new Sphere(vec3(4.0f, 1.0f, 0.0f), 1.0f, new Metal(vec3(0.7f, 0.6f, 0.5f), 0.0f));
-
-		*d_world = new HittableList(d_list, entityCount);
-	}
-}
-
-__global__ void freeWorld(Hittable **d_list, Hittable **d_world, uint32_t listSize)
-{
-	for (uint32_t i = 0; i < listSize; ++i)
-	{
-		delete d_list[i];
-	}
-	delete *d_world;
-}
-
 __global__ void initRandState(int width, int height, curandState *randState)
 {
 	int threadIDx = threadIdx.x + blockIdx.x * blockDim.x;
@@ -226,9 +167,7 @@ int main()
 	GLuint pixelBufferGL = 0;
 	cudaGraphicsResource *pixelBufferCuda = nullptr;
 	float4 *accumBuffer = nullptr;
-	Hittable2 *hittables;
-	Hittable **d_list;
-	Hittable **d_world;
+	Hittable *hittables;
 	curandState *d_randState;
 	uint32_t entityListSize = 22 * 22 + 4;
 	uint32_t hittablesCount = 0;
@@ -283,25 +222,21 @@ int main()
 		checkCudaErrors(cudaGetLastError());
 		checkCudaErrors(cudaDeviceSynchronize());
 
-		// alloc memory for accum buffer and entities
+		// alloc memory for accum buffer
 		checkCudaErrors(cudaMalloc((void **)&accumBuffer, width * height * sizeof(float4)));
-		checkCudaErrors(cudaMalloc((void **)&d_list, entityListSize * sizeof(Hittable *)));
-		checkCudaErrors(cudaMalloc((void **)&d_world, sizeof(Hittable *)));
+
+		checkCudaErrors(cudaEventCreate(&startEvent));
+		checkCudaErrors(cudaEventCreate(&stopEvent));
 
 		// create entities
-		createWorld << <1, 1 >> > (d_list, d_world, d_randState, entityListSize);
-		checkCudaErrors(cudaGetLastError());
-		checkCudaErrors(cudaDeviceSynchronize());
-
-
 		{
 			std::default_random_engine e;
 			std::uniform_real_distribution<float> d(0.0f, 1.0f);
 
-			std::vector<Hittable2> hittablesCpu;
+			std::vector<Hittable> hittablesCpu;
 			hittablesCpu.reserve(entityListSize);
 
-			hittablesCpu.push_back(Hittable2(Hittable2::Type::SPHERE, Material2(Material2::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f)), { vec3(0.0f, -1000.0f, 0.0f), 1000.0f }));
+			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f)), { vec3(0.0f, -1000.0f, 0.0f), 1000.0f }));
 
 			for (int a = -11; a < 11; ++a)
 			{
@@ -315,42 +250,36 @@ int main()
 						{
 							// diffuse
 							auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
-							hittablesCpu.push_back(Hittable2(Hittable2::Type::SPHERE, Material2(Material2::Type::LAMBERTIAN, albedo), { center, 0.2f }));
+							hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Material(Material::Type::LAMBERTIAN, albedo), { center, 0.2f }));
 						}
 						else if (chooseMat < 0.95f)
 						{
 							// metal
 							auto albedo = vec3(d(e), d(e), d(e)) * 0.5f + 0.5f;
 							auto fuzz = d(e) * 0.5f;
-							hittablesCpu.push_back(Hittable2(Hittable2::Type::SPHERE, Material2(Material2::Type::METAL, albedo, fuzz), { center, 0.2f }));
+							hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Material(Material::Type::METAL, albedo, fuzz), { center, 0.2f }));
 						}
 						else
 						{
 							// glass
-							hittablesCpu.push_back(Hittable2(Hittable2::Type::SPHERE, Material2(Material2::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f), { center, 0.2f }));
+							hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f), { center, 0.2f }));
 						}
 					}
 				}
 			}
 			
-			hittablesCpu.push_back(Hittable2(Hittable2::Type::SPHERE, Material2(Material2::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f), { vec3(0.0f, 1.0f, 0.0f), 1.0f }));
+			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f), { vec3(0.0f, 1.0f, 0.0f), 1.0f }));
 			
-			hittablesCpu.push_back(Hittable2(Hittable2::Type::SPHERE, Material2(Material2::Type::LAMBERTIAN, vec3(0.4f, 0.2f, 0.1f)), { vec3(-4.0f, 1.0f, 0.0f), 1.0f }));
+			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Material(Material::Type::LAMBERTIAN, vec3(0.4f, 0.2f, 0.1f)), { vec3(-4.0f, 1.0f, 0.0f), 1.0f }));
 			
-			hittablesCpu.push_back(Hittable2(Hittable2::Type::SPHERE, Material2(Material2::Type::METAL, vec3(0.7f, 0.6f, 0.5f), 0.0f), { vec3(4.0f, 1.0f, 0.0f), 1.0f }));
+			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Material(Material::Type::METAL, vec3(0.7f, 0.6f, 0.5f), 0.0f), { vec3(4.0f, 1.0f, 0.0f), 1.0f }));
 
-			checkCudaErrors(cudaMalloc((void **)&hittables, hittablesCpu.size() * sizeof(Hittable2)));
+			checkCudaErrors(cudaMalloc((void **)&hittables, hittablesCpu.size() * sizeof(Hittable)));
 
-			checkCudaErrors(cudaMemcpy(hittables, hittablesCpu.data(), hittablesCpu.size() * sizeof(Hittable2), cudaMemcpyKind::cudaMemcpyHostToDevice));
+			checkCudaErrors(cudaMemcpy(hittables, hittablesCpu.data(), hittablesCpu.size() * sizeof(Hittable), cudaMemcpyKind::cudaMemcpyHostToDevice));
 
 			hittablesCount = (uint32_t)hittablesCpu.size();
-
-			checkCudaErrors(cudaGetLastError());
-			checkCudaErrors(cudaDeviceSynchronize());
 		}
-
-		cudaEventCreate(&startEvent);
-		cudaEventCreate(&stopEvent);
 	}
 
 	uint32_t frame = 0;
@@ -399,10 +328,7 @@ int main()
 	checkCudaErrors(cudaGraphicsUnregisterResource(pixelBufferCuda));
 
 	// free cuda memory
-	freeWorld << <1, 1 >> > (d_list, d_world, entityListSize);
-	checkCudaErrors(cudaGetLastError());
-	checkCudaErrors(cudaFree(d_list));
-	checkCudaErrors(cudaFree(d_world));
+	checkCudaErrors(cudaFree(hittables));
 	checkCudaErrors(cudaFree(d_randState));
 
 	// delete pixel buffer object
