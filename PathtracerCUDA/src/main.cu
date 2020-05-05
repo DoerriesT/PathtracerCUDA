@@ -12,6 +12,7 @@
 #include <stdio.h>
 
 #include "Window.h"
+#include "UserInput.h"
 #include <iostream>
 
 #include "Ray.h"
@@ -199,7 +200,7 @@ __global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool igno
 	Ray r = camera.getRay(u, v, localRandState);
 	vec3 color = getColor(r, hittableCount, world, bvhNodesCount, bvhNodes, localRandState);
 
-	color += inputColor;
+	color = ignoreHistory ? color : color + inputColor;
 
 	vec3 resultColor = color / float(frame + 1.0f);
 	resultColor = saturate(resultColor);
@@ -229,6 +230,9 @@ __global__ void initRandState(int width, int height, curandState *randState)
 int main()
 {
 	Window window(1600, 900, "Pathtracer CUDA");
+	UserInput input;
+	bool grabbedMouse = false;
+	window.addInputListener(&input);
 
 	uint32_t width = window.getWidth();
 	uint32_t height = window.getHeight();
@@ -254,10 +258,10 @@ int main()
 	vec3 lookat(0, 0, 0);
 	vec3 vup(0, 1, 0);
 	float dist_to_focus = 10.0f;
-	float aperture = 0.1f;
+	float aperture = 0.0f;
 	float aspectRatio = (float)width / height;
 
-	Camera camera(lookfrom, lookat, vup, radians(20.0f), aspectRatio, aperture, dist_to_focus);
+	Camera camera(lookfrom, lookat, vup, radians(60.0f), aspectRatio, aperture, dist_to_focus);
 
 	BVH bvh;
 
@@ -364,10 +368,85 @@ int main()
 		}
 	}
 
+	double lastTime = glfwGetTime();
+	double timeDelta = 0.0;
 	uint32_t frame = 0;
 	while (!window.shouldClose())
 	{
+		double time = glfwGetTime();
+		timeDelta = time - lastTime;
+		lastTime = time;
 		window.pollEvents();
+		input.input();
+
+		bool resetAccumulation = false;
+
+		// handle input
+		{
+			bool pressed = false;
+			float mod = 5.0f;
+			glm::vec3 cameraTranslation;
+
+			glm::vec2 mouseDelta = {};
+
+			if (input.isMouseButtonPressed(InputMouse::BUTTON_RIGHT))
+			{
+				if (!grabbedMouse)
+				{
+					grabbedMouse = true;
+					window.grabMouse(grabbedMouse);
+				}
+				mouseDelta = input.getMousePosDelta();
+			}
+			else
+			{
+				if (grabbedMouse)
+				{
+					grabbedMouse = false;
+					window.grabMouse(grabbedMouse);
+				}
+			}
+
+			if (mouseDelta.x * mouseDelta.x + mouseDelta.y * mouseDelta.y > 0.0f)
+			{
+				camera.rotate(mouseDelta.y * 0.005f, mouseDelta.x * 0.005f, 0.0f);
+				resetAccumulation = true;
+			}
+
+
+			if (input.isKeyPressed(InputKey::LEFT_SHIFT))
+			{
+				mod = 25.0f;
+			}
+			if (input.isKeyPressed(InputKey::W))
+			{
+				cameraTranslation.z = -mod * (float)timeDelta;
+				pressed = true;
+			}
+			if (input.isKeyPressed(InputKey::S))
+			{
+				cameraTranslation.z = mod * (float)timeDelta;
+				pressed = true;
+			}
+			if (input.isKeyPressed(InputKey::A))
+			{
+				cameraTranslation.x = -mod * (float)timeDelta;
+				pressed = true;
+			}
+			if (input.isKeyPressed(InputKey::D))
+			{
+				cameraTranslation.x = mod * (float)timeDelta;
+				pressed = true;
+			}
+			if (pressed)
+			{
+				camera.translate(cameraTranslation.x, cameraTranslation.y, cameraTranslation.z);
+				resetAccumulation = true;
+			}
+		}
+
+		frame = resetAccumulation ? 0 : frame;
+		resetAccumulation = false;
 
 		uchar4 *deviceMem;
 		size_t numBytes;

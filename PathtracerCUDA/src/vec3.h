@@ -180,6 +180,19 @@ __host__ __device__ inline vec3 refract(const vec3 &uv, const vec3 &n, float eta
 	return rOutParallel + rOutPerp;
 }
 
+// https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
+__host__ __device__ inline vec3 rotateAroundVector(const vec3 &v, const vec3 &axis, float cosAngle, float sinAngle)
+{
+	return v * cosAngle + cross(axis, v) * sinAngle + axis * dot(axis, v) * (1.0f - cosAngle);
+}
+
+__host__ __device__ inline vec3 rotateAroundVector(const vec3 &v, const vec3 &axis, float angle)
+{
+	const float cosAngle = cos(angle);
+	const float sinAngle = sin(angle);
+	return rotateAroundVector(v, axis, cosAngle, sinAngle);
+}
+
 __device__ inline vec3 random_unit_vec(curandState &randState)
 {
 	auto a = curand_uniform(&randState) * 2.0f * 3.14159265358979323846f;
