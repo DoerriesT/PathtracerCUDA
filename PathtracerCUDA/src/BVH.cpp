@@ -78,7 +78,7 @@ uint32_t BVH::buildRecursive(size_t begin, size_t end)
 	for (size_t i = begin; i < end; ++i)
 	{
 		AABB elemAabb;
-		bool bboxSupport = m_elements[i].boundingBox(0.0f, 0.0f, elemAabb);
+		bool bboxSupport = m_elements[i].boundingBox(elemAabb);
 		assert(bboxSupport);
 
 		node.m_aabb = AABB(node.m_aabb, elemAabb);
@@ -98,7 +98,7 @@ uint32_t BVH::buildRecursive(size_t begin, size_t end)
 		for (size_t i = begin; i < end; ++i)
 		{
 			AABB elemAabb;
-			m_elements[i].boundingBox(0.0f, 0.0f, elemAabb);
+			m_elements[i].boundingBox(elemAabb);
 
 			const vec3 centroid = (elemAabb.m_min + elemAabb.m_max) * 0.5f;
 			const vec3 relativeOffset = (centroid - node.m_aabb.m_min) / nodeAabbExtent;
@@ -158,7 +158,7 @@ uint32_t BVH::buildRecursive(size_t begin, size_t end)
 		const Hittable *pMid = std::partition(m_elements.data() + begin, m_elements.data() + end, [&](const auto &item)
 			{
 				AABB elemAabb;
-				item.boundingBox(0.0f, 0.0f, elemAabb);
+				item.boundingBox(elemAabb);
 				const vec3 centroid = (elemAabb.m_min + elemAabb.m_max) * 0.5f;
 				float relativeOffset = ((centroid[bestAxis] - node.m_aabb.m_min[bestAxis]) / nodeAabbExtent[bestAxis]);
 				int bucketIdx = int(8.0f * relativeOffset);
@@ -177,10 +177,10 @@ uint32_t BVH::buildRecursive(size_t begin, size_t end)
 				{
 					AABB aabb;
 
-					lhs.boundingBox(0.0f, 0.0f, aabb);
+					lhs.boundingBox(aabb);
 					const vec3 lhsCentroid = (aabb.m_min + aabb.m_max) * 0.5f;
 
-					rhs.boundingBox(0.0f, 0.0f, aabb);
+					rhs.boundingBox(aabb);
 					const vec3 rhsCentroid = (aabb.m_min + aabb.m_max) * 0.5f;
 
 					return lhsCentroid[bestAxis] < rhsCentroid[bestAxis];

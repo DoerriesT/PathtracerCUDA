@@ -150,27 +150,39 @@ struct Sphere
 	float m_radius;
 };
 
+struct Cylinder
+{
+	vec3 m_center;
+	float m_radius;
+	float m_halfHeight;
+};
+
 class Hittable
 {
 public:
 	enum Type : uint32_t
 	{
-		SPHERE
+		SPHERE, CYLINDER
 	};
 
 	union Payload
 	{
 		Sphere m_sphere;
+		Cylinder m_cylinder;
+
+		__host__ __device__ explicit Payload() :m_sphere(), m_cylinder() { }
+		__host__ __device__ explicit Payload(const Sphere &sphere) :m_sphere(sphere) { }
+		__host__ __device__ explicit Payload(const Cylinder &cylinder) :m_cylinder(cylinder) { }
 	};
 
 	__host__ __device__ Hittable()
 		:m_type(SPHERE),
 		m_material(),
-		m_payload({vec3(0.0f), 1.0f})
+		m_payload(Sphere{ vec3(0.0f), 1.0f })
 	{
 	}
 
-	__host__ __device__ Hittable(Type type, const Material &material, const Payload &payload)
+	__host__ __device__ Hittable(Type type, const Payload &payload, const Material &material)
 		: m_type(type),
 		m_material(material),
 		m_payload(payload)
@@ -183,18 +195,22 @@ public:
 		{
 		case SPHERE:
 			return hitSphere(r, tMin, tMax, rec);
+		case CYLINDER:
+			return hitCylinder(r, tMin, tMax, rec);
 		default:
 			break;
 		}
 		return false;
 	}
 
-	__host__ __device__ bool boundingBox(float t0, float t1, AABB &outputBox) const
+	__host__ __device__ bool boundingBox(AABB &outputBox) const
 	{
 		switch (m_type)
 		{
 		case SPHERE:
-			return sphereBoundingBox(t0, t1, outputBox);
+			return sphereBoundingBox(outputBox);
+		case CYLINDER:
+			return cylinderBoundingBox(outputBox);
 		default:
 			break;
 		}
@@ -213,7 +229,7 @@ private:
 		float a = length_squared(r.direction());
 		float b = 2.0f * dot(oc, r.direction());
 		float c = length_squared(oc) - sphere.m_radius * sphere.m_radius;
-		
+
 		// solve the quadratic equation
 		float t0 = 0.0f;
 		float t1 = 0.0f;
@@ -221,7 +237,7 @@ private:
 		{
 			return false;
 		}
-		
+
 		// get the closest t that is greater than tMin
 		rec.m_t = t0 > tMin ? t0 : t1;
 		rec.m_p = r.at(rec.m_t);
@@ -231,12 +247,67 @@ private:
 		return true;
 	}
 
-	__host__ __device__ bool sphereBoundingBox(float t0, float t1, AABB &outputBox) const
+	__host__ __device__ bool hitCylinder(const Ray &r, float tMin, float tMax, HitRecord &rec) const
+	{
+		const auto &cylinder = m_payload.m_cylinder;
+		vec3 oc = r.origin() - cylinder.m_center;
+		float a = r.m_dir.x * r.m_dir.x + r.m_dir.z * r.m_dir.z;
+		float b = 2.0f * (r.m_dir.x * oc.x + r.m_dir.z * oc.z);
+		float c = oc.x * oc.x + oc.z * oc.z - cylinder.m_radius * cylinder.m_radius;
+
+		// solve the quadratic equation
+		float t0 = 0.0f;
+		float t1 = 0.0f;
+		if (!quadratic(a, b, c, t0, t1) || t0 > tMax || t1 <= tMin)
+		{
+			return false;
+		}
+
+		// get the closest t that is greater than tMin
+		float t = t0 > tMin ? t0 : t1;
+		float hitPointHeight = r.m_dir.y * t + r.m_origin.y;
+
+		// check cylinder interval and use the second t if possible
+		if (hitPointHeight < (cylinder.m_center.y - cylinder.m_halfHeight) || hitPointHeight > (cylinder.m_center.y + cylinder.m_halfHeight))
+		{
+			if (t == t1)
+			{
+				return false;
+			}
+			t = t1;
+		}
+		// recalculate hit point height...
+		hitPointHeight = r.m_dir.y * t + r.m_origin.y;
+		// ... and check cylinder interval again
+		if (hitPointHeight < (cylinder.m_center.y - cylinder.m_halfHeight) || hitPointHeight >(cylinder.m_center.y + cylinder.m_halfHeight))
+		{
+			return false;
+		}
+
+		rec.m_t = t;
+		rec.m_p = r.at(rec.m_t);
+		vec3 outwardNormal = (rec.m_p - vec3(cylinder.m_center.x, rec.m_p.y, cylinder.m_center.z)) / cylinder.m_radius;
+		rec.setFaceNormal(r, outwardNormal);
+		rec.m_material = &m_material;
+		return true;
+	}
+
+	__host__ __device__ bool sphereBoundingBox(AABB &outputBox) const
 	{
 		const auto &sphere = m_payload.m_sphere;
 		outputBox = AABB(
 			sphere.m_center - vec3(sphere.m_radius, sphere.m_radius, sphere.m_radius),
 			sphere.m_center + vec3(sphere.m_radius, sphere.m_radius, sphere.m_radius)
+		);
+		return true;
+	}
+
+	__host__ __device__ bool cylinderBoundingBox(AABB &outputBox) const
+	{
+		const auto &cylinder = m_payload.m_cylinder;
+		outputBox = AABB(
+			cylinder.m_center - vec3(cylinder.m_radius, cylinder.m_halfHeight, cylinder.m_radius),
+			cylinder.m_center + vec3(cylinder.m_radius, cylinder.m_halfHeight, cylinder.m_radius)
 		);
 		return true;
 	}

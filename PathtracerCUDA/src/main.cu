@@ -313,7 +313,7 @@ int main()
 			std::vector<Hittable> hittablesCpu;
 			hittablesCpu.reserve(entityListSize);
 
-			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f)), { vec3(0.0f, -1000.0f, 0.0f), 1000.0f }));
+			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(0.0f, -1000.0f, 0.0f), 1000.0f }), Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
 
 			for (int a = -11; a < 11; ++a)
 			{
@@ -327,29 +327,31 @@ int main()
 						{
 							// diffuse
 							auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
-							hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Material(Material::Type::LAMBERTIAN, albedo), { center, 0.2f }));
+							hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::LAMBERTIAN, albedo)));
 						}
 						else if (chooseMat < 0.95f)
 						{
 							// metal
 							auto albedo = vec3(d(e), d(e), d(e)) * 0.5f + 0.5f;
 							auto fuzz = d(e) * 0.5f;
-							hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Material(Material::Type::METAL, albedo, fuzz), { center, 0.2f }));
+							hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::METAL, albedo, fuzz)));
 						}
 						else
 						{
 							// glass
-							hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f), { center, 0.2f }));
+							hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
 						}
 					}
 				}
 			}
-			
-			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f), { vec3(0.0f, 1.0f, 0.0f), 1.0f }));
-			
-			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Material(Material::Type::LAMBERTIAN, vec3(0.4f, 0.2f, 0.1f)), { vec3(-4.0f, 1.0f, 0.0f), 1.0f }));
-			
-			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Material(Material::Type::METAL, vec3(0.7f, 0.6f, 0.5f), 0.0f), { vec3(4.0f, 1.0f, 0.0f), 1.0f }));
+
+			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(0.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
+
+			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(-4.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(0.4f, 0.2f, 0.1f))));
+
+			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(4.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::METAL, vec3(0.7f, 0.6f, 0.5f), 0.0f)));
+
+			hittablesCpu.push_back(Hittable(Hittable::Type::CYLINDER, Hittable::Payload(Cylinder{ vec3(10.0f, 1.0f, 10.0f), 1.0f, 1.0f }), Material(Material::Type::DIELECTRIC, vec3(1.0f, 1.0f, 1.0f), 0.0f, 1.5f)));
 
 
 			bvh.build(hittablesCpu.size(), hittablesCpu.data(), 4);
