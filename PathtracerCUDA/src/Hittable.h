@@ -170,12 +170,19 @@ struct Cone
 	float m_height;
 };
 
+struct Paraboloid
+{
+	vec3 m_center;
+	float m_radius;
+	float m_height;
+};
+
 class Hittable
 {
 public:
 	enum Type : uint32_t
 	{
-		SPHERE, CYLINDER, DISK, CONE
+		SPHERE, CYLINDER, DISK, CONE, PARABOLOID
 	};
 
 	union Payload
@@ -184,12 +191,14 @@ public:
 		Cylinder m_cylinder;
 		Disk m_disk;
 		Cone m_cone;
+		Paraboloid m_paraboloid;
 
 		__host__ __device__ explicit Payload() { }
 		__host__ __device__ explicit Payload(const Sphere &sphere) : m_sphere(sphere) { }
 		__host__ __device__ explicit Payload(const Cylinder &cylinder) : m_cylinder(cylinder) { }
 		__host__ __device__ explicit Payload(const Disk &disk) : m_disk(disk) { }
 		__host__ __device__ explicit Payload(const Cone &cone) : m_cone(cone) { }
+		__host__ __device__ explicit Payload(const Paraboloid &paraboloid) : m_paraboloid(paraboloid) { }
 	};
 
 	__host__ __device__ Hittable()
@@ -218,6 +227,8 @@ public:
 			return hitDisk(r, tMin, tMax, rec);
 		case CONE:
 			return hitCone(r, tMin, tMax, rec);
+		case PARABOLOID:
+			return hitParaboloid(r, tMin, tMax, rec);
 		default:
 			break;
 		}
@@ -236,6 +247,8 @@ public:
 			return diskBoundingBox(outputBox);
 		case CONE:
 			return coneBoundingBox(outputBox);
+		case PARABOLOID:
+			return paraboloidBoundingBox(outputBox);
 		default:
 			break;
 		}
@@ -413,6 +426,63 @@ private:
 		return true;
 	}
 
+	__host__ __device__ bool hitParaboloid(const Ray &r, float tMin, float tMax, HitRecord &rec) const
+	{
+		const auto &para = m_payload.m_paraboloid;
+		vec3 oc = r.origin() - para.m_center;
+
+		float k = para.m_height / (para.m_radius * para.m_radius);
+		float a = k * (r.m_dir.x * r.m_dir.x + r.m_dir.z * r.m_dir.z);
+		float b = 2.0f * k * (r.m_dir.x * oc.x + r.m_dir.z * oc.z) - r.m_dir.y;
+		float c = k * (oc.x * oc.x + oc.z * oc.z) - oc.y;
+
+		// solve the quadratic equation
+		float t0 = 0.0f;
+		float t1 = 0.0f;
+		if (!quadratic(a, b, c, t0, t1) || t0 > tMax || t1 <= tMin)
+		{
+			return false;
+		}
+
+		// get the closest t that is greater than tMin
+		float t = t0 > tMin ? t0 : t1;
+		float hitPointHeight = r.m_dir.y * t + oc.y;
+
+		// check paraboloid height
+		if (hitPointHeight < 0.0f || hitPointHeight > para.m_height)
+		{
+			if (t == t1)
+			{
+				return false;
+			}
+			t = t1;
+			// test again
+			hitPointHeight = r.m_dir.y * t + oc.y;
+			if (hitPointHeight < 0.0f || hitPointHeight > para.m_height)
+			{
+				return false;
+			}
+		}
+
+		rec.m_t = t;
+		rec.m_p = r.at(rec.m_t);
+
+		// calculate normal
+		{
+			vec3 localHit = oc + t * r.m_dir;
+			const float phiMax = 2.0f * PI;
+			vec3 ddx = vec3(-phiMax * localHit.z, 0.0f, phiMax * localHit.x);
+			vec3 ddy = para.m_height * vec3(localHit.x / (2.0f * localHit.y), 1.0f, localHit.z / (2.0f * localHit.y));
+
+
+			vec3 outwardNormal = normalize(cross(ddx, ddy));
+
+			rec.setFaceNormal(r, outwardNormal);
+		}
+		rec.m_material = &m_material;
+		return true;
+	}
+
 	__host__ __device__ bool sphereBoundingBox(AABB &outputBox) const
 	{
 		const auto &sphere = m_payload.m_sphere;
@@ -449,6 +519,16 @@ private:
 		outputBox = AABB(
 			cone.m_center - vec3(cone.m_radius, 0.0f, cone.m_radius),
 			cone.m_center + vec3(cone.m_radius, cone.m_height, cone.m_radius)
+		);
+		return true;
+	}
+
+	__host__ __device__ bool paraboloidBoundingBox(AABB &outputBox) const
+	{
+		const auto &para = m_payload.m_paraboloid;
+		outputBox = AABB(
+			para.m_center - vec3(para.m_radius, 0.0f, para.m_radius),
+			para.m_center + vec3(para.m_radius, para.m_height, para.m_radius)
 		);
 		return true;
 	}

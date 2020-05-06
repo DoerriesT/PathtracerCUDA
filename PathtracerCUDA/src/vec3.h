@@ -3,6 +3,8 @@
 #include <iostream>
 #include <curand_kernel.h>
 
+#define PI (3.14159265358979323846f)
+
 struct vec3
 {
 	union
