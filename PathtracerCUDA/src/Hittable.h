@@ -157,22 +157,30 @@ struct Cylinder
 	float m_halfHeight;
 };
 
+struct Disk
+{
+	vec3 m_center;
+	float m_radius;
+};
+
 class Hittable
 {
 public:
 	enum Type : uint32_t
 	{
-		SPHERE, CYLINDER
+		SPHERE, CYLINDER, DISK
 	};
 
 	union Payload
 	{
 		Sphere m_sphere;
 		Cylinder m_cylinder;
+		Disk m_disk;
 
-		__host__ __device__ explicit Payload() :m_sphere(), m_cylinder() { }
-		__host__ __device__ explicit Payload(const Sphere &sphere) :m_sphere(sphere) { }
-		__host__ __device__ explicit Payload(const Cylinder &cylinder) :m_cylinder(cylinder) { }
+		__host__ __device__ explicit Payload() { }
+		__host__ __device__ explicit Payload(const Sphere &sphere) : m_sphere(sphere) { }
+		__host__ __device__ explicit Payload(const Cylinder &cylinder) : m_cylinder(cylinder) { }
+		__host__ __device__ explicit Payload(const Disk &disk) : m_disk(disk) { }
 	};
 
 	__host__ __device__ Hittable()
@@ -197,6 +205,8 @@ public:
 			return hitSphere(r, tMin, tMax, rec);
 		case CYLINDER:
 			return hitCylinder(r, tMin, tMax, rec);
+		case DISK:
+			return hitDisk(r, tMin, tMax, rec);
 		default:
 			break;
 		}
@@ -211,6 +221,8 @@ public:
 			return sphereBoundingBox(outputBox);
 		case CYLINDER:
 			return cylinderBoundingBox(outputBox);
+		case DISK:
+			return diskBoundingBox(outputBox);
 		default:
 			break;
 		}
@@ -268,7 +280,7 @@ private:
 		float hitPointHeight = r.m_dir.y * t + r.m_origin.y;
 
 		// check cylinder interval and use the second t if possible
-		if (hitPointHeight < (cylinder.m_center.y - cylinder.m_halfHeight) || hitPointHeight > (cylinder.m_center.y + cylinder.m_halfHeight))
+		if (hitPointHeight < (cylinder.m_center.y - cylinder.m_halfHeight) || hitPointHeight >(cylinder.m_center.y + cylinder.m_halfHeight))
 		{
 			if (t == t1)
 			{
@@ -292,6 +304,41 @@ private:
 		return true;
 	}
 
+	__host__ __device__ bool hitDisk(const Ray &r, float tMin, float tMax, HitRecord &rec) const
+	{
+		// ray is parallel to disk -> no intersection
+		if (r.m_dir.y == 0.0f)
+		{
+			return false;
+		}
+
+		const auto &disk = m_payload.m_disk;
+		vec3 oc = r.origin() - disk.m_center;
+
+		// intersection t of ray and plane of disk
+		float t = (disk.m_center.y - r.m_origin.y) / r.m_dir.y;
+
+		if (t < tMin || t > tMax)
+		{
+			return false;
+		}
+
+		// check that hit point is inside the radius of the disk
+		float hitPointX = oc.x + r.m_dir.x * t;
+		float hitPointZ = oc.z + r.m_dir.z * t;
+		if ((hitPointX * hitPointX + hitPointZ * hitPointZ) >= (disk.m_radius * disk.m_radius))
+		{
+			return false;
+		}
+
+		rec.m_t = t;
+		rec.m_p = r.at(t);
+		vec3 outwardNormal = vec3(0.0f, 1.0f, 0.0f);
+		rec.setFaceNormal(r, outwardNormal);
+		rec.m_material = &m_material;
+		return true;
+	}
+
 	__host__ __device__ bool sphereBoundingBox(AABB &outputBox) const
 	{
 		const auto &sphere = m_payload.m_sphere;
@@ -308,6 +355,16 @@ private:
 		outputBox = AABB(
 			cylinder.m_center - vec3(cylinder.m_radius, cylinder.m_halfHeight, cylinder.m_radius),
 			cylinder.m_center + vec3(cylinder.m_radius, cylinder.m_halfHeight, cylinder.m_radius)
+		);
+		return true;
+	}
+
+	__host__ __device__ bool diskBoundingBox(AABB &outputBox) const
+	{
+		const auto &disk = m_payload.m_disk;
+		outputBox = AABB(
+			disk.m_center - vec3(disk.m_radius, -FLT_EPSILON, disk.m_radius),
+			disk.m_center + vec3(disk.m_radius, FLT_EPSILON, disk.m_radius)
 		);
 		return true;
 	}
