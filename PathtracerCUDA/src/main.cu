@@ -355,6 +355,8 @@ int main()
 
 			hittablesCpu.push_back(Hittable(Hittable::Type::DISK, Hittable::Payload(Disk{ vec3(10.0f, 2.0f, 10.0f), 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(1.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
 
+			hittablesCpu.push_back(Hittable(Hittable::Type::CONE, Hittable::Payload(Cone{ vec3(0.0f, 3.0f, 0.0f), 1.0f, 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(1.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
+
 
 			bvh.build(hittablesCpu.size(), hittablesCpu.data(), 4);
 			assert(bvh.validate());

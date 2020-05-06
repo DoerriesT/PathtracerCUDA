@@ -163,12 +163,19 @@ struct Disk
 	float m_radius;
 };
 
+struct Cone
+{
+	vec3 m_center;
+	float m_radius;
+	float m_height;
+};
+
 class Hittable
 {
 public:
 	enum Type : uint32_t
 	{
-		SPHERE, CYLINDER, DISK
+		SPHERE, CYLINDER, DISK, CONE
 	};
 
 	union Payload
@@ -176,11 +183,13 @@ public:
 		Sphere m_sphere;
 		Cylinder m_cylinder;
 		Disk m_disk;
+		Cone m_cone;
 
 		__host__ __device__ explicit Payload() { }
 		__host__ __device__ explicit Payload(const Sphere &sphere) : m_sphere(sphere) { }
 		__host__ __device__ explicit Payload(const Cylinder &cylinder) : m_cylinder(cylinder) { }
 		__host__ __device__ explicit Payload(const Disk &disk) : m_disk(disk) { }
+		__host__ __device__ explicit Payload(const Cone &cone) : m_cone(cone) { }
 	};
 
 	__host__ __device__ Hittable()
@@ -207,6 +216,8 @@ public:
 			return hitCylinder(r, tMin, tMax, rec);
 		case DISK:
 			return hitDisk(r, tMin, tMax, rec);
+		case CONE:
+			return hitCone(r, tMin, tMax, rec);
 		default:
 			break;
 		}
@@ -223,6 +234,8 @@ public:
 			return cylinderBoundingBox(outputBox);
 		case DISK:
 			return diskBoundingBox(outputBox);
+		case CONE:
+			return coneBoundingBox(outputBox);
 		default:
 			break;
 		}
@@ -277,24 +290,25 @@ private:
 
 		// get the closest t that is greater than tMin
 		float t = t0 > tMin ? t0 : t1;
-		float hitPointHeight = r.m_dir.y * t + r.m_origin.y;
+		float hitPointHeight = r.m_dir.y * t + oc.y;
 
 		// check cylinder interval and use the second t if possible
-		if (hitPointHeight < (cylinder.m_center.y - cylinder.m_halfHeight) || hitPointHeight >(cylinder.m_center.y + cylinder.m_halfHeight))
+		if (hitPointHeight < -cylinder.m_halfHeight || hitPointHeight > cylinder.m_halfHeight)
 		{
 			if (t == t1)
 			{
 				return false;
 			}
 			t = t1;
+			// recalculate hit point height...
+			hitPointHeight = r.m_dir.y * t + oc.y;
+			// ... and check cylinder interval again
+			if (hitPointHeight < -cylinder.m_halfHeight || hitPointHeight > cylinder.m_halfHeight)
+			{
+				return false;
+			}
 		}
-		// recalculate hit point height...
-		hitPointHeight = r.m_dir.y * t + r.m_origin.y;
-		// ... and check cylinder interval again
-		if (hitPointHeight < (cylinder.m_center.y - cylinder.m_halfHeight) || hitPointHeight >(cylinder.m_center.y + cylinder.m_halfHeight))
-		{
-			return false;
-		}
+		
 
 		rec.m_t = t;
 		rec.m_p = r.at(rec.m_t);
@@ -339,6 +353,66 @@ private:
 		return true;
 	}
 
+	__host__ __device__ bool hitCone(const Ray &r, float tMin, float tMax, HitRecord &rec) const
+	{
+		const auto &cone = m_payload.m_cone;
+		vec3 oc = r.origin() - cone.m_center;
+
+		float k = cone.m_radius / cone.m_height;
+		k *= k;
+		float a = r.m_dir.x * r.m_dir.x + r.m_dir.z * r.m_dir.z - k * r.m_dir.y * r.m_dir.y;
+		float b = 2.0f * (r.m_dir.x * oc.x + r.m_dir.z * oc.z - k * r.m_dir.y * (oc.y - cone.m_height));
+		float c = oc.x * oc.x + oc.z * oc.z - k * (oc.y - cone.m_height) * (oc.y - cone.m_height);
+
+		// solve the quadratic equation
+		float t0 = 0.0f;
+		float t1 = 0.0f;
+		if (!quadratic(a, b, c, t0, t1) || t0 > tMax || t1 <= tMin)
+		{
+			return false;
+		}
+
+		// get the closest t that is greater than tMin
+		float t = t0 > tMin ? t0 : t1;
+		float hitPointHeight = r.m_dir.y * t + oc.y;
+
+		// check cone height
+		if (hitPointHeight < 0.0f || hitPointHeight > cone.m_height)
+		{
+			if (t == t1)
+			{
+				return false;
+			}
+			t = t1;
+			// test again
+			hitPointHeight = r.m_dir.y * t + oc.y;
+			if (hitPointHeight < 0.0f || hitPointHeight > cone.m_height)
+			{
+				return false;
+			}
+		}
+
+		rec.m_t = t;
+		rec.m_p = r.at(rec.m_t);
+		
+		// calculate normal
+		{
+			// x, z components of vector from center to p
+			float vX = rec.m_p.x - cone.m_center.x;
+			float vZ = rec.m_p.z - cone.m_center.z;
+			// normalize the vector
+			float normFactor = 1.0f / sqrtf(vX * vX + vZ * vZ);
+			vX *= normFactor;
+			vZ *= normFactor;
+			float heightOverRadius = cone.m_height / cone.m_radius;
+			vec3 outwardNormal = vec3(vX * heightOverRadius, cone.m_radius / cone.m_height, vZ * heightOverRadius);
+			
+			rec.setFaceNormal(r, outwardNormal);
+		}
+		rec.m_material = &m_material;
+		return true;
+	}
+
 	__host__ __device__ bool sphereBoundingBox(AABB &outputBox) const
 	{
 		const auto &sphere = m_payload.m_sphere;
@@ -365,6 +439,16 @@ private:
 		outputBox = AABB(
 			disk.m_center - vec3(disk.m_radius, -FLT_EPSILON, disk.m_radius),
 			disk.m_center + vec3(disk.m_radius, FLT_EPSILON, disk.m_radius)
+		);
+		return true;
+	}
+
+	__host__ __device__ bool coneBoundingBox(AABB &outputBox) const
+	{
+		const auto &cone = m_payload.m_cone;
+		outputBox = AABB(
+			cone.m_center - vec3(cone.m_radius, 0.0f, cone.m_radius),
+			cone.m_center + vec3(cone.m_radius, cone.m_height, cone.m_radius)
 		);
 		return true;
 	}
