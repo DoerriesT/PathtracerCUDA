@@ -301,27 +301,19 @@ private:
 			return false;
 		}
 
-		// get the closest t that is greater than tMin
-		float t = t0 > tMin ? t0 : t1;
-		float hitPointHeight = r.m_dir.y * t + oc.y;
+		const float hitPointHeight0 = r.m_dir.y * t0 + oc.y;
+		const float hitPointHeight1 = r.m_dir.y * t1 + oc.y;
+		const bool hitPointValid0 = t0 > tMin && t0 <= tMax && hitPointHeight0 >= -cylinder.m_halfHeight && hitPointHeight0 <= cylinder.m_halfHeight;
+		const bool hitPointValid1 = t1 > tMin && t1 <= tMax && hitPointHeight1 >= -cylinder.m_halfHeight && hitPointHeight1 <= cylinder.m_halfHeight;
 
-		// check cylinder interval and use the second t if possible
-		if (hitPointHeight < -cylinder.m_halfHeight || hitPointHeight > cylinder.m_halfHeight)
+		// both hitpoints are invalid
+		if (!hitPointValid0 && !hitPointValid1)
 		{
-			if (t == t1)
-			{
-				return false;
-			}
-			t = t1;
-			// recalculate hit point height...
-			hitPointHeight = r.m_dir.y * t + oc.y;
-			// ... and check cylinder interval again
-			if (hitPointHeight < -cylinder.m_halfHeight || hitPointHeight > cylinder.m_halfHeight)
-			{
-				return false;
-			}
+			return false;
 		}
-		
+
+		// get t of closest valid hitpoint
+		float t = hitPointValid0 ? t0 : t1;
 
 		rec.m_t = t;
 		rec.m_p = r.at(rec.m_t);
@@ -345,7 +337,7 @@ private:
 		// intersection t of ray and plane of disk
 		float t = (disk.m_center.y - r.m_origin.y) / r.m_dir.y;
 
-		if (t < tMin || t > tMax)
+		if (t <= tMin || t > tMax)
 		{
 			return false;
 		}
@@ -385,25 +377,19 @@ private:
 			return false;
 		}
 
-		// get the closest t that is greater than tMin
-		float t = t0 > tMin ? t0 : t1;
-		float hitPointHeight = r.m_dir.y * t + oc.y;
+		const float hitPointHeight0 = r.m_dir.y * t0 + oc.y;
+		const float hitPointHeight1 = r.m_dir.y * t1 + oc.y;
+		const bool hitPointValid0 = t0 > tMin && t0 <= tMax && hitPointHeight0 >= 0.0f && hitPointHeight0 <= cone.m_height;
+		const bool hitPointValid1 = t1 > tMin && t1 <= tMax && hitPointHeight1 >= 0.0f && hitPointHeight1 <= cone.m_height;
 
-		// check cone height
-		if (hitPointHeight < 0.0f || hitPointHeight > cone.m_height)
+		// both hitpoints are invalid
+		if (!hitPointValid0 && !hitPointValid1)
 		{
-			if (t == t1)
-			{
-				return false;
-			}
-			t = t1;
-			// test again
-			hitPointHeight = r.m_dir.y * t + oc.y;
-			if (hitPointHeight < 0.0f || hitPointHeight > cone.m_height)
-			{
-				return false;
-			}
+			return false;
 		}
+
+		// get t of closest valid hitpoint
+		float t = hitPointValid0 ? t0 : t1;
 
 		rec.m_t = t;
 		rec.m_p = r.at(rec.m_t);
@@ -444,25 +430,19 @@ private:
 			return false;
 		}
 
-		// get the closest t that is greater than tMin
-		float t = t0 > tMin ? t0 : t1;
-		float hitPointHeight = r.m_dir.y * t + oc.y;
+		const float hitPointHeight0 = r.m_dir.y * t0 + oc.y;
+		const float hitPointHeight1 = r.m_dir.y * t1 + oc.y;
+		const bool hitPointValid0 = t0 > tMin && t0 <= tMax && hitPointHeight0 >= 0.0f && hitPointHeight0 <= para.m_height;
+		const bool hitPointValid1 = t1 > tMin && t1 <= tMax && hitPointHeight1 >= 0.0f && hitPointHeight1 <= para.m_height;
 
-		// check paraboloid height
-		if (hitPointHeight < 0.0f || hitPointHeight > para.m_height)
+		// both hitpoints are invalid
+		if (!hitPointValid0 && !hitPointValid1)
 		{
-			if (t == t1)
-			{
-				return false;
-			}
-			t = t1;
-			// test again
-			hitPointHeight = r.m_dir.y * t + oc.y;
-			if (hitPointHeight < 0.0f || hitPointHeight > para.m_height)
-			{
-				return false;
-			}
+			return false;
 		}
+
+		// get t of closest valid hitpoint
+		float t = hitPointValid0 ? t0 : t1;
 
 		rec.m_t = t;
 		rec.m_p = r.at(rec.m_t);
