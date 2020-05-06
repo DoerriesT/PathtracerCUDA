@@ -21,6 +21,29 @@ __host__ __device__ inline float ffmin(float a, float b)
 	return a < b ? a : b;
 }
 
+__host__ __device__ inline bool quadratic(float a, float b, float c, float &t0, float &t1)
+{
+	// find discriminant
+	const float discriminant = b * b - 4.0f * a * c;
+	if (discriminant < 0.0f)
+	{
+		return false;
+	}
+	const float discriminantRoot = sqrtf(discriminant);
+
+	// compute t values
+	const float q = b < 0.0f ? -0.5f * (b - discriminantRoot) : -0.5f * (b + discriminantRoot);
+	t0 = q / a;
+	t1 = c / q;
+	if (t0 > t1)
+	{
+		const float tmp = t0;
+		t0 = t1;
+		t1 = tmp;
+	}
+	return true;
+}
+
 struct HitRecord
 {
 	vec3 m_p;
@@ -187,37 +210,25 @@ private:
 	{
 		const auto &sphere = m_payload.m_sphere;
 		vec3 oc = r.origin() - sphere.m_center;
-		auto a = length_squared(r.direction());
-		auto half_b = dot(oc, r.direction());
-		auto c = length_squared(oc) - sphere.m_radius * sphere.m_radius;
-		auto discriminant = half_b * half_b - a * c;
-
-		if (discriminant > 0.0f)
+		float a = length_squared(r.direction());
+		float b = 2.0f * dot(oc, r.direction());
+		float c = length_squared(oc) - sphere.m_radius * sphere.m_radius;
+		
+		// solve the quadratic equation
+		float t0 = 0.0f;
+		float t1 = 0.0f;
+		if (!quadratic(a, b, c, t0, t1) || t0 > tMax || t1 <= tMin)
 		{
-			auto root = sqrt(discriminant);
-			auto temp = (-half_b - root) / a;
-			if (temp < tMax && temp > tMin)
-			{
-				rec.m_t = temp;
-				rec.m_p = r.at(rec.m_t);
-				vec3 outwardNormal = (rec.m_p - sphere.m_center) / sphere.m_radius;
-				rec.setFaceNormal(r, outwardNormal);
-				rec.m_material = &m_material;
-				return true;
-			}
-			temp = (-half_b + root) / a;
-			if (temp < tMax && temp > tMin)
-			{
-				rec.m_t = temp;
-				rec.m_p = r.at(rec.m_t);
-				vec3 outwardNormal = (rec.m_p - sphere.m_center) / sphere.m_radius;
-				rec.setFaceNormal(r, outwardNormal);
-				rec.m_material = &m_material;
-				return true;
-			}
+			return false;
 		}
-
-		return false;
+		
+		// get the closest t that is greater than tMin
+		rec.m_t = t0 > tMin ? t0 : t1;
+		rec.m_p = r.at(rec.m_t);
+		vec3 outwardNormal = (rec.m_p - sphere.m_center) / sphere.m_radius;
+		rec.setFaceNormal(r, outwardNormal);
+		rec.m_material = &m_material;
+		return true;
 	}
 
 	__host__ __device__ bool sphereBoundingBox(float t0, float t1, AABB &outputBox) const
