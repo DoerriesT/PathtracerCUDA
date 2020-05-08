@@ -59,6 +59,9 @@
     <ClInclude Include="src\BVH.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="src\brdf.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="src\main.cu" />

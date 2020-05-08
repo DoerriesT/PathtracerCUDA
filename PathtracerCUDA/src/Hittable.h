@@ -2,6 +2,7 @@
 #include "Ray.h"
 #include "vec3.h"
 #include "AABB.h"
+#include "brdf.h"
 
 class Material;
 
@@ -44,11 +45,14 @@ __host__ __device__ inline bool quadratic(float a, float b, float c, float &t0, 
 	return true;
 }
 
+class Material2;
+
 struct HitRecord
 {
 	vec3 m_p;
 	vec3 m_normal;
-	const Material *m_material;
+	vec3 m_emitted;
+	const Material2 *m_material;
 	float m_t;
 	bool m_frontFace;
 
@@ -57,6 +61,49 @@ struct HitRecord
 		m_frontFace = dot(r.direction(), outwardNormal) < 0.0f;
 		m_normal = m_frontFace ? outwardNormal : -outwardNormal;
 	}
+};
+
+class Material2
+{
+public:
+	__host__ __device__ Material2(const vec3 &baseColor = vec3(1.0f), float roughness = 0.5f, float metalness = 0.0f)
+		:m_baseColor(baseColor),
+		m_roughness(roughness < 0.04f ? 0.04f : roughness),
+		m_metalness(metalness)
+	{
+
+	}
+
+	__device__ vec3 sample(const Ray &rIn, const HitRecord &rec, curandState &randState, Ray &scattered, float &pdf) const
+	{
+		const vec3 N = normalize(rec.m_normal);
+		const vec3 V = normalize(rIn.m_dir);
+		vec3 L = cosineSampleHemisphere(curand_uniform(&randState), curand_uniform(&randState), pdf);
+		L = tangentToWorld(N, L);
+
+		scattered = Ray(rec.m_p, L);
+
+		float NdotV = abs(dot(N, N)) + 1e-5f;
+		vec3 H = normalize(N + L);
+		float VdotH = clamp(dot(V, H));
+		float NdotH = clamp(dot(N, H));
+		float NdotL = clamp(dot(N, L));
+
+		float a = m_roughness * m_roughness;
+		float a2 = a * a;
+
+		vec3 F0 = lerp(vec3(0.04f), m_baseColor, m_metalness);
+		vec3 kS = Specular_GGX(F0, NdotV, NdotL, NdotH, VdotH, a2);
+		vec3 kD = Diffuse_Lambert(m_baseColor);
+		//vec3 kD = (28.0f / (23.0f * PI)) * m_baseColor * (1.0f - F0) * (1.0f - pow5(1.0f - 0.5f * NdotL)) * (1.0f - (1.0f - pow5(NdotV)));
+
+		return kD * (1.0f - m_metalness);// +kS;
+	}
+
+private:
+	vec3 m_baseColor;
+	float m_roughness;
+	float m_metalness;
 };
 
 class Material
@@ -208,7 +255,7 @@ public:
 	{
 	}
 
-	__host__ __device__ Hittable(Type type, const Payload &payload, const Material &material)
+	__host__ __device__ Hittable(Type type, const Payload &payload, const Material2 &material)
 		: m_type(type),
 		m_material(material),
 		m_payload(payload)
@@ -257,7 +304,7 @@ public:
 
 private:
 	Type m_type;
-	Material m_material;
+	Material2 m_material;
 	Payload m_payload;
 
 	__host__ __device__ bool hitSphere(const Ray &r, float tMin, float tMax, HitRecord &rec) const

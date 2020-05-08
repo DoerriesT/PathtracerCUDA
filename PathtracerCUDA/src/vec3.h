@@ -227,3 +227,59 @@ __device__ vec3 inline random_vec(curandState &randState)
 {
 	return vec3(curand_uniform(&randState), curand_uniform(&randState), curand_uniform(&randState));
 }
+
+__host__ __device__ inline vec3 lerp(const vec3 &x, const vec3 &y, const vec3 &a)
+{
+	return x * (1.0f - a) + y * a;
+}
+
+__host__ __device__ inline vec3 lerp(const vec3 &x, const vec3 &y, float a)
+{
+	return x * (1.0f - a) + y * a;
+}
+
+__host__ __device__ inline float lerp(float x, float y, float a)
+{
+	return x * (1.0f - a) + y * a;
+}
+
+__device__ inline vec3 random_in_hemisphere(const vec3 &normal, curandState &randState)
+{
+	vec3 in_unit_sphere = normalize(random_unit_vec(randState));
+	return dot(in_unit_sphere, normal) > 0.0 ? in_unit_sphere : -in_unit_sphere;
+}
+
+__host__ __device__ inline vec3 tangentToWorld(const vec3 &N, const vec3 &v)
+{
+	vec3 up = abs(N.z) < 0.999f ? vec3(0.0f, 0.0f, 1.0f) : vec3(1.0f, 0.0f, 0.0f);
+	vec3 tangent = normalize(cross(up, N));
+	vec3 bitangent = cross(N, tangent);
+	
+	return normalize(tangent * v.x + bitangent * v.y + N * v.z);
+}
+
+__host__ __device__ inline vec3 cosineSampleHemisphere(float u0, float u1, float &pdf)
+{
+	const float phi = 2.0 * PI * u0;
+	const float cosTheta = sqrt(u1);
+	const float sinTheta = sqrt(1.0f - u1);
+	pdf = cosTheta * (1.0f / PI);
+	return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+}
+
+__host__ __device__ inline float clamp(float x, float a = 0.0f, float b = 1.0f)
+{
+	x = x < a ? a : x;
+	x = x > b ? b : x;
+	return x;
+}
+
+__host__ __device__ inline vec3 clamp(vec3 x, vec3 a, vec3 b)
+{
+	return vec3(clamp(x.x, 0.0f, 1.0f), clamp(x.y, 0.0f, 1.0f), clamp(x.z, 0.0f, 1.0f));
+}
+
+__host__ __device__ inline vec3 saturate(vec3 x)
+{
+	return clamp(x, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
+}

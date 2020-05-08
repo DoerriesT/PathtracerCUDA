@@ -35,29 +35,6 @@ void check_cuda(cudaError_t result, char const *const func, const char *const fi
 	}
 }
 
-__device__ vec3 random_in_hemisphere(const vec3 &normal, curandState &randState)
-{
-	vec3 in_unit_sphere = normalize(random_unit_vec(randState));
-	return dot(in_unit_sphere, normal) > 0.0 ? in_unit_sphere : -in_unit_sphere;
-}
-
-__host__ __device__ float clamp(float x, float a, float b)
-{
-	x = x < a ? a : x;
-	x = x > b ? b : x;
-	return x;
-}
-
-__host__ __device__ vec3 clamp(vec3 x, vec3 a, vec3 b)
-{
-	return vec3(clamp(x.x, 0.0f, 1.0f), clamp(x.y, 0.0f, 1.0f), clamp(x.z, 0.0f, 1.0f));
-}
-
-__host__ __device__ vec3 saturate(vec3 x)
-{
-	return clamp(x, vec3(0.0f, 0.0f, 0.0f), vec3(1.0f, 1.0f, 1.0f));
-}
-
 __device__ bool hitList(uint32_t hittableCount, Hittable *world, const Ray &r, float t_min, float t_max, HitRecord &rec)
 {
 	HitRecord tempRec;
@@ -146,36 +123,68 @@ __device__ bool hitBVH(uint32_t hittableCount, Hittable *world, uint32_t bvhNode
 
 __device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, uint32_t bvhNodesCount, BVHNode *bvhNodes, curandState &randState)
 {
-	vec3 att = vec3(1.0f, 1.0f, 1.0f);
+	vec3 beta = vec3(1.0f);
+	vec3 L = vec3(0.0f);
 	Ray ray = r;
 	for (int iteration = 0; iteration < 5; ++iteration)
 	{
 		HitRecord rec;
-		if (hitBVH(hittableCount, world, bvhNodesCount, bvhNodes, ray, 0.001f, FLT_MAX, rec))
-		//if (hitList(hittableCount, world, ray, 0.001f, FLT_MAX, rec))
+		bool foundIntersection = hitBVH(hittableCount, world, bvhNodesCount, bvhNodes, ray, 0.001f, FLT_MAX, rec);
+
+		// add emitted light
+		if (foundIntersection)
 		{
-			Ray scattered;
-			vec3 attenuation;
-			if (rec.m_material->scatter(ray, rec, randState, attenuation, scattered))
-			{
-				att *= attenuation;
-				ray = scattered;
-			}
-			else
-			{
-				return vec3(0.0f, 0.0f, 0.0f);
-			}
+			//L += beta * rec.m_emitted;
 		}
-		else
+
+		// add sky light and exit loop
+		if (!foundIntersection)
 		{
 			vec3 unitDir = normalize(ray.m_dir);
 			float t = unitDir.y * 0.5f + 0.5f;
 			vec3 c = (1.0f - t) * vec3(1.0f, 1.0f, 1.0f) + t * vec3(0.5f, 0.7f, 1.0f);
-			return c * att;
+			L += beta * c;
+			break;
 		}
+
+		// scatter
+		{
+			Ray scattered;
+			float pdf = 0.0f;
+			vec3 attenuation = rec.m_material->sample(ray, rec, randState, scattered, pdf);
+			if (attenuation == vec3(0.0f) || pdf == 0.0f)
+			{
+				break;
+			}
+			beta *= attenuation * abs(dot(normalize(scattered.m_dir), normalize(rec.m_normal))) / pdf;
+			ray = scattered;
+		}
+
+		//if (hitBVH(hittableCount, world, bvhNodesCount, bvhNodes, ray, 0.001f, FLT_MAX, rec))
+		////if (hitList(hittableCount, world, ray, 0.001f, FLT_MAX, rec))
+		//{
+		//	Ray scattered;
+		//	vec3 attenuation;
+		//	if (rec.m_material->scatter(ray, rec, randState, attenuation, scattered))
+		//	{
+		//		beta *= attenuation;
+		//		ray = scattered;
+		//	}
+		//	else
+		//	{
+		//		return vec3(0.0f, 0.0f, 0.0f);
+		//	}
+		//}
+		//else
+		//{
+		//	vec3 unitDir = normalize(ray.m_dir);
+		//	float t = unitDir.y * 0.5f + 0.5f;
+		//	vec3 c = (1.0f - t) * vec3(1.0f, 1.0f, 1.0f) + t * vec3(0.5f, 0.7f, 1.0f);
+		//	return c * beta;
+		//}
 	}
 
-	return vec3(0.0f, 0.0f, 0.0f);
+	return L;
 }
 
 __global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool ignoreHistory, uint32_t frame, uint32_t width, uint32_t height, uint32_t hittableCount, Hittable *world, uint32_t bvhNodesCount, BVHNode *bvhNodes, curandState *randState, Camera camera)
@@ -313,7 +322,7 @@ int main()
 			std::vector<Hittable> hittablesCpu;
 			hittablesCpu.reserve(entityListSize);
 
-			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(0.0f, -1000.0f, 0.0f), 1000.0f }), Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
+			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(0.0f, -1000.0f, 0.0f), 1000.0f }), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
 
 			for (int a = -11; a < 11; ++a)
 			{
@@ -323,41 +332,43 @@ int main()
 					vec3 center(a + 0.9f * d(e), 0.2f, b + 0.9f * d(e));
 					if (length(center - vec3(4.0f, 0.2f, 0.0f)) > 0.9f)
 					{
-						if (chooseMat < 0.8f)
-						{
-							// diffuse
-							auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
-							hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::LAMBERTIAN, albedo)));
-						}
-						else if (chooseMat < 0.95f)
-						{
-							// metal
-							auto albedo = vec3(d(e), d(e), d(e)) * 0.5f + 0.5f;
-							auto fuzz = d(e) * 0.5f;
-							hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::METAL, albedo, fuzz)));
-						}
-						else
-						{
-							// glass
-							hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
-						}
+						auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
+						hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material2(albedo)));
+						//if (chooseMat < 0.8f)
+						//{
+						//	// diffuse
+						//	auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
+						//	hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::LAMBERTIAN, albedo)));
+						//}
+						//else if (chooseMat < 0.95f)
+						//{
+						//	// metal
+						//	auto albedo = vec3(d(e), d(e), d(e)) * 0.5f + 0.5f;
+						//	auto fuzz = d(e) * 0.5f;
+						//	hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::METAL, albedo, fuzz)));
+						//}
+						//else
+						//{
+						//	// glass
+						//	hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
+						//}
 					}
 				}
 			}
 
-			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(0.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
-
-			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(-4.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(0.4f, 0.2f, 0.1f))));
-
-			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(4.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::METAL, vec3(0.7f, 0.6f, 0.5f), 0.0f)));
-
-			hittablesCpu.push_back(Hittable(Hittable::Type::CYLINDER, Hittable::Payload(Cylinder{ vec3(10.0f, 1.0f, 10.0f), 1.0f, 1.0f }), Material(Material::Type::DIELECTRIC, vec3(1.0f, 1.0f, 1.0f), 0.0f, 1.5f)));
-
-			hittablesCpu.push_back(Hittable(Hittable::Type::DISK, Hittable::Payload(Disk{ vec3(10.0f, 2.0f, 10.0f), 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(1.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
-
-			hittablesCpu.push_back(Hittable(Hittable::Type::CONE, Hittable::Payload(Cone{ vec3(0.0f, 3.0f, 0.0f), 1.0f, 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(1.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
-
-			hittablesCpu.push_back(Hittable(Hittable::Type::PARABOLOID, Hittable::Payload(Paraboloid{ vec3(3.0f, 1.0f, 3.0f), 1.0f, 3.0f }), Material(Material::Type::METAL, vec3(1.0f, 1.0f, 1.0f), 0.0f, 1.5f)));
+			//hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(0.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
+			//
+			//hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(-4.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(0.4f, 0.2f, 0.1f))));
+			//
+			//hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(4.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::METAL, vec3(0.7f, 0.6f, 0.5f), 0.0f)));
+			//
+			//hittablesCpu.push_back(Hittable(Hittable::Type::CYLINDER, Hittable::Payload(Cylinder{ vec3(10.0f, 1.0f, 10.0f), 1.0f, 1.0f }), Material(Material::Type::DIELECTRIC, vec3(1.0f, 1.0f, 1.0f), 0.0f, 1.5f)));
+			//
+			//hittablesCpu.push_back(Hittable(Hittable::Type::DISK, Hittable::Payload(Disk{ vec3(10.0f, 2.0f, 10.0f), 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(1.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
+			//
+			//hittablesCpu.push_back(Hittable(Hittable::Type::CONE, Hittable::Payload(Cone{ vec3(0.0f, 3.0f, 0.0f), 1.0f, 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(1.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
+			//
+			//hittablesCpu.push_back(Hittable(Hittable::Type::PARABOLOID, Hittable::Payload(Paraboloid{ vec3(3.0f, 1.0f, 3.0f), 1.0f, 3.0f }), Material(Material::Type::METAL, vec3(1.0f, 1.0f, 1.0f), 0.0f, 1.5f)));
 
 
 			bvh.build(hittablesCpu.size(), hittablesCpu.data(), 4);
