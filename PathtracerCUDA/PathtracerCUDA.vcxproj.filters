@@ -21,6 +21,12 @@
     <ClCompile Include="src\BVH.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\Hittable.inl">
+      <Filter>src</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Material.inl">
+      <Filter>src</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Window.h">
@@ -62,8 +68,19 @@
     <ClInclude Include="src\brdf.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="src\Material.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\HitRecord.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="src\main.cu" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\vec3.inl">
+      <Filter>src</Filter>
+    </None>
   </ItemGroup>
 </Project>
