@@ -41,11 +41,11 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <IncludePath>.\..\Libraries\include;$(IncludePath)</IncludePath>
+    <IncludePath>.\src;.\..\Libraries\include;$(IncludePath)</IncludePath>
     <LibraryPath>.\..\Libraries\lib\64\debug;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>.\..\Libraries\include;$(IncludePath)</IncludePath>
+    <IncludePath>.\src;.\..\Libraries\include;$(IncludePath)</IncludePath>
     <LibraryPath>.\..\Libraries\lib\64\release;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -86,9 +86,10 @@
   <ItemGroup>
     <ClCompile Include="src\BVH.cpp" />
     <ClCompile Include="src\glad.c" />
-    <CudaCompile Include="src\main.cu">
-      <FileType>Document</FileType>
-    </CudaCompile>
+    <CudaCompile Include="src\kernels\initRandState.cu" />
+    <CudaCompile Include="src\kernels\trace.cu" />
+    <ClCompile Include="src\main.cpp" />
+    <CudaCompile Include="src\Pathtracer.cpp" />
     <ClCompile Include="src\UserInput.cpp" />
     <ClCompile Include="src\Utility.cpp" />
     <ClCompile Include="src\Window.cpp" />
@@ -102,6 +103,9 @@
     <ClInclude Include="src\Hittable.h" />
     <ClInclude Include="src\IInputListener.h" />
     <ClInclude Include="src\InputTokens.h" />
+    <ClInclude Include="src\kernels\initRandState.h" />
+    <ClInclude Include="src\kernels\trace.h" />
+    <ClInclude Include="src\Pathtracer.h" />
     <ClInclude Include="src\Ray.h" />
     <ClInclude Include="src\UserInput.h" />
     <ClInclude Include="src\Utility.h" />
