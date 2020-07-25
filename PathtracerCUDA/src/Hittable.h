@@ -44,7 +44,7 @@ class Hittable
 public:
 	enum Type : uint32_t
 	{
-		SPHERE, CYLINDER, DISK, CONE, PARABOLOID
+		SPHERE, CYLINDER, DISK, CONE, PARABOLOID, QUAD, CUBE
 	};
 
 	union Payload
@@ -83,6 +83,8 @@ private:
 	__host__ __device__ bool hitDisk(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
 	__host__ __device__ bool hitCone(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
 	__host__ __device__ bool hitParaboloid(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
+	__host__ __device__ bool hitQuad(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
+	__host__ __device__ bool hitBox(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
 };
 
 

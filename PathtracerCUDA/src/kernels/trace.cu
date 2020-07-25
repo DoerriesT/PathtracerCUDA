@@ -100,25 +100,23 @@ __device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, 
 		HitRecord rec;
 		bool foundIntersection = hitBVH(hittableCount, world, bvhNodesCount, bvhNodes, ray, 0.001f, FLT_MAX, rec);
 
-		// add emitted light
-		if (foundIntersection)
-		{
-			//L += beta * rec.m_emitted;
-		}
-
 		// add sky light and exit loop
 		if (!foundIntersection)
 		{
 			vec3 unitDir = normalize(ray.m_dir);
 			float t = unitDir.y * 0.5f + 0.5f;
 			vec3 c = (1.0f - t) * vec3(1.0f, 1.0f, 1.0f) + t * vec3(0.5f, 0.7f, 1.0f);
+			c = 0.0f;
 			L += beta * c;
 			break;
 		}
-
-		// scatter
-		if (foundIntersection)
+		// process intersection
+		else
 		{
+			// add emitted light
+			L += beta * rec.m_material->getEmitted(ray, rec);
+
+			// scatter
 			Ray scattered;
 			float pdf = 0.0f;
 			vec3 attenuation = rec.m_material->sample(ray, rec, randState, scattered, pdf);

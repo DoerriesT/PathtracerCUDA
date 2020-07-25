@@ -85,16 +85,30 @@ __host__ __device__ inline Hittable::Hittable(Type type, const vec3 &position, c
 		m_aabb.m_min = vec3(FLT_MAX);
 		m_aabb.m_max = vec3(-FLT_MAX);
 
-		for (int z = -1; z < 2; z += 2)
+		float xExtend[2]{-1.0f, 1.0f};
+		float yExtend[2]{-1.0f, 1.0f};
+		float zExtend[2]{-1.0f, 1.0f};
+
+		if (m_type == Type::DISK || m_type == Type::QUAD)
 		{
-			for (int y = -1; y < 2; y += 2)
+			yExtend[0] = -0.01f;
+			yExtend[1] = 0.01f;
+		}
+		else if (m_type == Type::PARABOLOID)
+		{
+			yExtend[0] = 0.0f;
+		}
+
+		for (int z = 0; z < 2; ++z)
+		{
+			for (int y = 0; y < 2; ++y)
 			{
-				for (int x = -1; x < 2; x += 2)
+				for (int x = 0; x < 2; ++x)
 				{
 					vec3 pos;
-					pos.x = dot(vec3((float)x, (float)y, (float)z), vec3(localToWorldRows[0].x, localToWorldRows[0].y, localToWorldRows[0].z)) + localToWorldRows[0].w;
-					pos.y = dot(vec3((float)x, (float)y, (float)z), vec3(localToWorldRows[1].x, localToWorldRows[1].y, localToWorldRows[1].z)) + localToWorldRows[1].w;
-					pos.z = dot(vec3((float)x, (float)y, (float)z), vec3(localToWorldRows[2].x, localToWorldRows[2].y, localToWorldRows[2].z)) + localToWorldRows[2].w;
+					pos.x = dot(vec3(xExtend[x], yExtend[y], zExtend[z]), vec3(localToWorldRows[0].x, localToWorldRows[0].y, localToWorldRows[0].z)) + localToWorldRows[0].w;
+					pos.y = dot(vec3(xExtend[x], yExtend[y], zExtend[z]), vec3(localToWorldRows[1].x, localToWorldRows[1].y, localToWorldRows[1].z)) + localToWorldRows[1].w;
+					pos.z = dot(vec3(xExtend[x], yExtend[y], zExtend[z]), vec3(localToWorldRows[2].x, localToWorldRows[2].y, localToWorldRows[2].z)) + localToWorldRows[2].w;
 
 					m_aabb.m_min = min(m_aabb.m_min, pos);
 					m_aabb.m_max = max(m_aabb.m_max, pos);
@@ -132,6 +146,10 @@ __host__ __device__ inline bool Hittable::hit(const Ray &r, float tMin, float tM
 		result = hitCone(lr, tMin, tMax, t, normal); break;
 	case PARABOLOID:
 		result = hitParaboloid(lr, tMin, tMax, t, normal); break;
+	case QUAD:
+		result = hitQuad(lr, tMin, tMax, t, normal); break;
+	case CUBE:
+		result = hitBox(lr, tMin, tMax, t, normal); break;
 	default:
 		break;
 	}
@@ -294,6 +312,62 @@ __host__ __device__ inline bool Hittable::hitParaboloid(const Ray &r, float tMin
 
 	vec3 p = r.at(t);
 	normal = quadricNormal<1, 0, 1, 0, 0, 0, 0, -1>(p);
+
+	return true;
+}
+
+inline __host__ __device__ bool Hittable::hitQuad(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const
+{
+	// ray is parallel to quad -> no intersection
+	if (r.m_dir.y == 0.0f)
+	{
+		return false;
+	}
+
+	vec3 oc = r.origin();
+
+	// intersection t of ray and plane of quad
+	t = -r.m_origin.y / r.m_dir.y;
+
+	if (t <= tMin || t > tMax)
+	{
+		return false;
+	}
+
+	// check that hit point is inside the extent of the quad
+	float absHitPointX = abs(oc.x + r.m_dir.x * t);
+	float absHitPointZ = abs(oc.z + r.m_dir.z * t);
+	if (absHitPointX > 1.0f || absHitPointZ > 1.0f)
+	{
+		return false;
+	}
+
+	normal = vec3(0.0f, 1.0f, 0.0f);
+	return true;
+}
+
+inline __host__ __device__ bool Hittable::hitBox(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const
+{
+	AABB aabb = { vec3(-1.0f), vec3(1.0f) };
+	if (!aabb.intersect(r, tMin, tMax, t))
+	{
+		return false;
+	}
+
+	normal = r.at(t);
+	vec3 absN = vec3(abs(normal.x), abs(normal.y), abs(normal.z));
+	if (absN.x > absN.y && absN.x > absN.z)
+	{
+		normal = vec3(1.0f, 0.0f, 0.0f);
+	}
+	else if (absN.y > absN.x && absN.y > absN.z)
+	{
+		normal = vec3(0.0f, 1.0f, 0.0f);
+	}
+	else
+	{
+		normal = vec3(0.0f, 0.0f, 1.0f);
+	}
 
 	return true;
 }

@@ -22,8 +22,9 @@ __host__ __device__ inline  float ffmin(float a, float b)
 }
 
 
-__host__ __device__ inline Material2::Material2(const vec3 &baseColor, float roughness, float metalness)
+__host__ __device__ inline Material2::Material2(const vec3 &baseColor, const vec3 &emissive, float roughness, float metalness)
 	:m_baseColor(baseColor),
+	m_emissive(emissive),
 	m_roughness(roughness < 0.04f ? 0.04f : roughness),
 	m_metalness(metalness)
 {
@@ -54,6 +55,11 @@ __device__ vec3 inline Material2::sample(const Ray &rIn, const HitRecord &rec, c
 	//vec3 kD = (28.0f / (23.0f * PI)) * m_baseColor * (1.0f - F0) * (1.0f - pow5(1.0f - 0.5f * NdotL)) * (1.0f - (1.0f - pow5(NdotV)));
 
 	return kD * (1.0f - m_metalness);// +kS;
+}
+
+__device__ inline vec3 Material2::getEmitted(const Ray &rIn, const HitRecord &rec) const
+{
+	return m_emissive;
 }
 
 __host__ __device__ inline MaterialOld::MaterialOld(Type type, const vec3 &albedo, float fuzz, float ior)
