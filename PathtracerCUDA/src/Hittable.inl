@@ -26,6 +26,34 @@ __host__ __device__ inline bool quadratic(float a, float b, float c, float &t0, 
 	return true;
 }
 
+// http://skuld.bmsc.washington.edu/people/merritt/graphics/quadrics.html
+template<int A = 0, int B = 0, int C = 0, int D = 0, int E = 0, int F = 0, int G = 0, int H = 0, int I = 0, int J = 0>
+__host__ __device__ inline bool hitQuadric(const vec3 &o, const vec3 &d, float &t0, float &t1)
+{
+	float a = (A * d.x * d.x) + (B * d.y * d.y) + (C * d.z * d.z) + (D * d.x * d.y)
+		+ (E * d.x * d.z) + (F * d.y * d.z);
+
+	float b = (2.0f * A * o.x * d.x) + (2.0f * B * o.y * d.y) + (2.0f * C * o.z * d.z) + (D * (o.x * d.y + o.y * d.x))
+		+ (E * (o.x * d.z + o.z * d.x)) + (F * (o.y * d.z + d.y * o.z)) + (G * d.x) + (H * d.y) + (I * d.z);
+
+	float c = (A * o.x * o.x) + (B * o.y * o.y) + (C * o.z * o.z) + (D * o.x * o.y)
+		+ (E * o.x * o.z) + (F * o.y * o.z) + (G * o.x) + (H * o.y) + (I * o.z) + J;
+
+	return quadratic(a, b, c, t0, t1);
+}
+
+// http://skuld.bmsc.washington.edu/people/merritt/graphics/quadrics.html
+template<int A = 0, int B = 0, int C = 0, int D = 0, int E = 0, int F = 0, int G = 0, int H = 0, int I = 0, int J = 0>
+__host__ __device__ inline vec3 quadricNormal(const vec3 &p)
+{
+	vec3 normal;
+	normal.x = 2.0f * (A * p.x) + (D * p.y) + (E * p.z) + G;
+	normal.y = 2.0f * (B * p.y) + (D * p.x) + (F * p.z) + H;
+	normal.z = 2.0f * (C * p.z) + (E * p.x) + (F * p.y) + I;
+
+	return normal;
+}
+
 __host__ __device__ inline Hittable::Hittable()
 	:m_type(SPHERE),
 	m_material(),
@@ -97,13 +125,13 @@ __host__ __device__ inline bool Hittable::hit(const Ray &r, float tMin, float tM
 	case SPHERE:
 		result = hitSphere(lr, tMin, tMax, t, normal); break;
 	case CYLINDER:
-		result = hitCylinder(lr, tMin, tMax, rec); break;
+		result = hitCylinder(lr, tMin, tMax, t, normal); break;
 	case DISK:
-		result = hitDisk(lr, tMin, tMax, rec); break;
+		result = hitDisk(lr, tMin, tMax, t, normal); break;
 	case CONE:
-		result = hitCone(lr, tMin, tMax, rec); break;
+		result = hitCone(lr, tMin, tMax, t, normal); break;
 	case PARABOLOID:
-		result = hitParaboloid(lr, tMin, tMax, rec); break;
+		result = hitParaboloid(lr, tMin, tMax, t, normal); break;
 	default:
 		break;
 	}
@@ -133,11 +161,10 @@ inline bool Hittable::boundingBox(AABB &outputBox) const
 
 __host__ __device__ inline bool Hittable::hitSphere(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const
 {
-	const auto &sphere = m_payload.m_sphere;
-	vec3 oc = r.origin();// -sphere.m_center;
+	vec3 oc = r.origin();
 	float a = length_squared(r.direction());
 	float b = 2.0f * dot(oc, r.direction());
-	float c = length_squared(oc) - 1.0f;// sphere.m_radius *sphere.m_radius;
+	float c = length_squared(oc) - 1.0f;
 
 	// solve the quadratic equation
 	float t0 = 0.0f;
@@ -149,30 +176,24 @@ __host__ __device__ inline bool Hittable::hitSphere(const Ray &r, float tMin, fl
 
 	// get the closest t that is greater than tMin
 	t = t0 > tMin ? t0 : t1;
-	normal = r.at(t);// (rec.m_p - sphere.m_center) / sphere.m_radius;
+	normal = r.at(t);
 	return true;
 }
 
-__host__ __device__ inline bool Hittable::hitCylinder(const Ray &r, float tMin, float tMax, HitRecord &rec) const
+__host__ __device__ inline bool Hittable::hitCylinder(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const
 {
-	const auto &cylinder = m_payload.m_cylinder;
-	vec3 oc = r.origin() - cylinder.m_center;
-	float a = r.m_dir.x * r.m_dir.x + r.m_dir.z * r.m_dir.z;
-	float b = 2.0f * (r.m_dir.x * oc.x + r.m_dir.z * oc.z);
-	float c = oc.x * oc.x + oc.z * oc.z - cylinder.m_radius * cylinder.m_radius;
-
 	// solve the quadratic equation
 	float t0 = 0.0f;
 	float t1 = 0.0f;
-	if (!quadratic(a, b, c, t0, t1) || t0 > tMax || t1 <= tMin)
+	if (!hitQuadric<1, 0, 1, 0, 0, 0, 0, 0, 0, -1>(r.origin(), r.direction(), t0, t1) || t0 > tMax || t1 <= tMin)
 	{
 		return false;
 	}
 
-	const float hitPointHeight0 = r.m_dir.y * t0 + oc.y;
-	const float hitPointHeight1 = r.m_dir.y * t1 + oc.y;
-	const bool hitPointValid0 = t0 > tMin && t0 <= tMax && hitPointHeight0 >= -cylinder.m_halfHeight && hitPointHeight0 <= cylinder.m_halfHeight;
-	const bool hitPointValid1 = t1 > tMin && t1 <= tMax && hitPointHeight1 >= -cylinder.m_halfHeight && hitPointHeight1 <= cylinder.m_halfHeight;
+	const float hitPointHeight0 = r.m_dir.y * t0 + r.origin().y;
+	const float hitPointHeight1 = r.m_dir.y * t1 + r.origin().y;
+	const bool hitPointValid0 = t0 > tMin && t0 <= tMax && hitPointHeight0 >= -1.0f && hitPointHeight0 <= 1.0f;
+	const bool hitPointValid1 = t1 > tMin && t1 <= tMax && hitPointHeight1 >= -1.0f && hitPointHeight1 <= 1.0f;
 
 	// both hitpoints are invalid
 	if (!hitPointValid0 && !hitPointValid1)
@@ -181,17 +202,13 @@ __host__ __device__ inline bool Hittable::hitCylinder(const Ray &r, float tMin, 
 	}
 
 	// get t of closest valid hitpoint
-	float t = hitPointValid0 ? t0 : t1;
-
-	rec.m_t = t;
-	rec.m_p = r.at(rec.m_t);
-	vec3 outwardNormal = (rec.m_p - vec3(cylinder.m_center.x, rec.m_p.y, cylinder.m_center.z)) / cylinder.m_radius;
-	rec.setFaceNormal(r, outwardNormal);
-	rec.m_material = &m_material;
+	t = hitPointValid0 ? t0 : t1;
+	vec3 p = r.at(t);
+	normal = vec3(p.x, 0.0f, p.z);
 	return true;
 }
 
-__host__ __device__ inline bool Hittable::hitDisk(const Ray &r, float tMin, float tMax, HitRecord &rec) const
+__host__ __device__ inline bool Hittable::hitDisk(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const
 {
 	// ray is parallel to disk -> no intersection
 	if (r.m_dir.y == 0.0f)
@@ -199,11 +216,10 @@ __host__ __device__ inline bool Hittable::hitDisk(const Ray &r, float tMin, floa
 		return false;
 	}
 
-	const auto &disk = m_payload.m_disk;
-	vec3 oc = r.origin() - disk.m_center;
+	vec3 oc = r.origin();
 
 	// intersection t of ray and plane of disk
-	float t = (disk.m_center.y - r.m_origin.y) / r.m_dir.y;
+	t = -r.m_origin.y / r.m_dir.y;
 
 	if (t <= tMin || t > tMax)
 	{
@@ -213,42 +229,29 @@ __host__ __device__ inline bool Hittable::hitDisk(const Ray &r, float tMin, floa
 	// check that hit point is inside the radius of the disk
 	float hitPointX = oc.x + r.m_dir.x * t;
 	float hitPointZ = oc.z + r.m_dir.z * t;
-	if ((hitPointX * hitPointX + hitPointZ * hitPointZ) >= (disk.m_radius * disk.m_radius))
+	if ((hitPointX * hitPointX + hitPointZ * hitPointZ) >= 1.0f)
 	{
 		return false;
 	}
 
-	rec.m_t = t;
-	rec.m_p = r.at(t);
-	vec3 outwardNormal = vec3(0.0f, 1.0f, 0.0f);
-	rec.setFaceNormal(r, outwardNormal);
-	rec.m_material = &m_material;
+	normal = vec3(0.0f, 1.0f, 0.0f);
 	return true;
 }
 
-__host__ __device__ inline bool Hittable::hitCone(const Ray &r, float tMin, float tMax, HitRecord &rec) const
+__host__ __device__ inline bool Hittable::hitCone(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const
 {
-	const auto &cone = m_payload.m_cone;
-	vec3 oc = r.origin() - cone.m_center;
-
-	float k = cone.m_radius / cone.m_height;
-	k *= k;
-	float a = r.m_dir.x * r.m_dir.x + r.m_dir.z * r.m_dir.z - k * r.m_dir.y * r.m_dir.y;
-	float b = 2.0f * (r.m_dir.x * oc.x + r.m_dir.z * oc.z - k * r.m_dir.y * (oc.y - cone.m_height));
-	float c = oc.x * oc.x + oc.z * oc.z - k * (oc.y - cone.m_height) * (oc.y - cone.m_height);
-
 	// solve the quadratic equation
 	float t0 = 0.0f;
 	float t1 = 0.0f;
-	if (!quadratic(a, b, c, t0, t1) || t0 > tMax || t1 <= tMin)
+	if (!hitQuadric<1, -1, 1>(r.origin(), r.direction(), t0, t1) || t0 > tMax || t1 <= tMin)
 	{
 		return false;
 	}
 
-	const float hitPointHeight0 = r.m_dir.y * t0 + oc.y;
-	const float hitPointHeight1 = r.m_dir.y * t1 + oc.y;
-	const bool hitPointValid0 = t0 > tMin && t0 <= tMax && hitPointHeight0 >= 0.0f && hitPointHeight0 <= cone.m_height;
-	const bool hitPointValid1 = t1 > tMin && t1 <= tMax && hitPointHeight1 >= 0.0f && hitPointHeight1 <= cone.m_height;
+	const float hitPointHeight0 = r.m_dir.y * t0 + r.origin().y;
+	const float hitPointHeight1 = r.m_dir.y * t1 + r.origin().y;
+	const bool hitPointValid0 = t0 > tMin && t0 <= tMax && hitPointHeight0 >= -1.0f && hitPointHeight0 <= 1.0f;
+	const bool hitPointValid1 = t1 > tMin && t1 <= tMax && hitPointHeight1 >= -1.0f && hitPointHeight1 <= 1.0f;
 
 	// both hitpoints are invalid
 	if (!hitPointValid0 && !hitPointValid1)
@@ -257,51 +260,28 @@ __host__ __device__ inline bool Hittable::hitCone(const Ray &r, float tMin, floa
 	}
 
 	// get t of closest valid hitpoint
-	float t = hitPointValid0 ? t0 : t1;
+	t = hitPointValid0 ? t0 : t1;
 
-	rec.m_t = t;
-	rec.m_p = r.at(rec.m_t);
+	vec3 p = r.at(t);
+	normal = quadricNormal<1, -1, 1>(p);
 
-	// calculate normal
-	{
-		// x, z components of vector from center to p
-		float vX = rec.m_p.x - cone.m_center.x;
-		float vZ = rec.m_p.z - cone.m_center.z;
-		// normalize the vector
-		float normFactor = 1.0f / sqrtf(vX * vX + vZ * vZ);
-		vX *= normFactor;
-		vZ *= normFactor;
-		float heightOverRadius = cone.m_height / cone.m_radius;
-		vec3 outwardNormal = vec3(vX * heightOverRadius, cone.m_radius / cone.m_height, vZ * heightOverRadius);
-
-		rec.setFaceNormal(r, outwardNormal);
-	}
-	rec.m_material = &m_material;
 	return true;
 }
 
-__host__ __device__ inline bool Hittable::hitParaboloid(const Ray &r, float tMin, float tMax, HitRecord &rec) const
+__host__ __device__ inline bool Hittable::hitParaboloid(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const
 {
-	const auto &para = m_payload.m_paraboloid;
-	vec3 oc = r.origin() - para.m_center;
-
-	float k = para.m_height / (para.m_radius * para.m_radius);
-	float a = k * (r.m_dir.x * r.m_dir.x + r.m_dir.z * r.m_dir.z);
-	float b = 2.0f * k * (r.m_dir.x * oc.x + r.m_dir.z * oc.z) - r.m_dir.y;
-	float c = k * (oc.x * oc.x + oc.z * oc.z) - oc.y;
-
 	// solve the quadratic equation
 	float t0 = 0.0f;
 	float t1 = 0.0f;
-	if (!quadratic(a, b, c, t0, t1) || t0 > tMax || t1 <= tMin)
+	if (!hitQuadric<1, 0, 1, 0, 0, 0, 0, -1>(r.origin(), r.direction(), t0, t1) || t0 > tMax || t1 <= tMin)
 	{
 		return false;
 	}
 
-	const float hitPointHeight0 = r.m_dir.y * t0 + oc.y;
-	const float hitPointHeight1 = r.m_dir.y * t1 + oc.y;
-	const bool hitPointValid0 = t0 > tMin && t0 <= tMax && hitPointHeight0 >= 0.0f && hitPointHeight0 <= para.m_height;
-	const bool hitPointValid1 = t1 > tMin && t1 <= tMax && hitPointHeight1 >= 0.0f && hitPointHeight1 <= para.m_height;
+	const float hitPointHeight0 = r.m_dir.y * t0 + r.origin().y;
+	const float hitPointHeight1 = r.m_dir.y * t1 + r.origin().y;
+	const bool hitPointValid0 = t0 > tMin && t0 <= tMax && hitPointHeight0 >= -1.0f && hitPointHeight0 <= 1.0f;
+	const bool hitPointValid1 = t1 > tMin && t1 <= tMax && hitPointHeight1 >= -1.0f && hitPointHeight1 <= 1.0f;
 
 	// both hitpoints are invalid
 	if (!hitPointValid0 && !hitPointValid1)
@@ -310,23 +290,10 @@ __host__ __device__ inline bool Hittable::hitParaboloid(const Ray &r, float tMin
 	}
 
 	// get t of closest valid hitpoint
-	float t = hitPointValid0 ? t0 : t1;
+	t = hitPointValid0 ? t0 : t1;
 
-	rec.m_t = t;
-	rec.m_p = r.at(rec.m_t);
+	vec3 p = r.at(t);
+	normal = quadricNormal<1, 0, 1, 0, 0, 0, 0, -1>(p);
 
-	// calculate normal
-	{
-		vec3 localHit = oc + t * r.m_dir;
-		const float phiMax = 2.0f * PI;
-		vec3 ddx = vec3(-phiMax * localHit.z, 0.0f, phiMax * localHit.x);
-		vec3 ddy = para.m_height * vec3(localHit.x / (2.0f * localHit.y), 1.0f, localHit.z / (2.0f * localHit.y));
-
-
-		vec3 outwardNormal = normalize(cross(ddx, ddy));
-
-		rec.setFaceNormal(r, outwardNormal);
-	}
-	rec.m_material = &m_material;
 	return true;
 }

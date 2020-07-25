@@ -79,10 +79,10 @@ private:
 
 	// intersection functions
 	__host__ __device__ bool hitSphere(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
-	__host__ __device__ bool hitCylinder(const Ray &r, float tMin, float tMax, HitRecord &rec) const;
-	__host__ __device__ bool hitDisk(const Ray &r, float tMin, float tMax, HitRecord &rec) const;
-	__host__ __device__ bool hitCone(const Ray &r, float tMin, float tMax, HitRecord &rec) const;
-	__host__ __device__ bool hitParaboloid(const Ray &r, float tMin, float tMax, HitRecord &rec) const;
+	__host__ __device__ bool hitCylinder(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
+	__host__ __device__ bool hitDisk(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
+	__host__ __device__ bool hitCone(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
+	__host__ __device__ bool hitParaboloid(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
 };
 
 
