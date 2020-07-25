@@ -66,6 +66,8 @@ __host__ __device__ float clamp(float x, float a = 0.0f, float b = 1.0f);
 __host__ __device__ vec3 clamp(vec3 x, vec3 a, vec3 b);
 __host__ __device__ vec3 saturate(vec3 x);
 
+__host__ __device__ void worldTransform(const vec3 &position, const vec3 &rotation, const vec3 &scale, float4 *localToWorldRows, float4 *worldToLocalRows);
+
 
 // IMPLEMENTATION
 #include "vec3.inl"

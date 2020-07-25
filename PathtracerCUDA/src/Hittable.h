@@ -64,28 +64,25 @@ public:
 	};
 
 	__host__ __device__ Hittable();
-	__host__ __device__ Hittable(Type type, const Payload &payload, const Material2 &material);
+	__host__ __device__ Hittable(Type type, const vec3 &position, const vec3 &rotation, const vec3 &scale, const Payload &payload, const Material2 &material);
 	__host__ __device__ bool hit(const Ray &r, float tMin, float tMax, HitRecord &rec) const;
-	__host__ __device__ bool boundingBox(AABB &outputBox) const;
+	bool boundingBox(AABB &outputBox) const;
 
 private:
+	float4 m_invTransformRow0;
+	float4 m_invTransformRow1;
+	float4 m_invTransformRow2;
 	Type m_type;
 	Material2 m_material;
 	Payload m_payload;
+	AABB m_aabb;
 
 	// intersection functions
-	__host__ __device__ bool hitSphere(const Ray &r, float tMin, float tMax, HitRecord &rec) const;
+	__host__ __device__ bool hitSphere(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
 	__host__ __device__ bool hitCylinder(const Ray &r, float tMin, float tMax, HitRecord &rec) const;
 	__host__ __device__ bool hitDisk(const Ray &r, float tMin, float tMax, HitRecord &rec) const;
 	__host__ __device__ bool hitCone(const Ray &r, float tMin, float tMax, HitRecord &rec) const;
 	__host__ __device__ bool hitParaboloid(const Ray &r, float tMin, float tMax, HitRecord &rec) const;
-
-	// bounding box functions
-	__host__ __device__ bool sphereBoundingBox(AABB &outputBox) const;
-	__host__ __device__ bool cylinderBoundingBox(AABB &outputBox) const;
-	__host__ __device__ bool diskBoundingBox(AABB &outputBox) const;
-	__host__ __device__ bool coneBoundingBox(AABB &outputBox) const;
-	__host__ __device__ bool paraboloidBoundingBox(AABB &outputBox) const;
 };
 
 

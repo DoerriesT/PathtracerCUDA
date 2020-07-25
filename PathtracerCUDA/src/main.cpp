@@ -42,8 +42,8 @@ int main()
 		std::vector<Hittable> hittablesCpu;
 		hittablesCpu.reserve(22 * 22 + 4);
 
-		hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(0.0f, -1000.0f, 0.0f), 1000.0f }), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
-
+		hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, vec3(0.0f, -1000.0f, 0.0f), vec3(), vec3(1000.0f), Hittable::Payload(Sphere{ vec3(0.0f, -1000.0f, 0.0f), 1000.0f }), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
+		
 		for (int a = -11; a < 11; ++a)
 		{
 			for (int b = -11; b < 11; ++b)
@@ -53,7 +53,7 @@ int main()
 				if (length(center - vec3(4.0f, 0.2f, 0.0f)) > 0.9f)
 				{
 					auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
-					hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material2(albedo)));
+					hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, center, vec3(), vec3(0.2f), Hittable::Payload(Sphere{ center, 0.2f }), Material2(albedo)));
 					//if (chooseMat < 0.8f)
 					//{
 					//	// diffuse

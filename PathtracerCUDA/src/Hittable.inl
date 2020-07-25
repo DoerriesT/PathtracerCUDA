@@ -31,62 +31,113 @@ __host__ __device__ inline Hittable::Hittable()
 	m_material(),
 	m_payload(Sphere{ vec3(0.0f), 1.0f })
 {
+	m_invTransformRow0 = { 1.0f, 0.0f, 0.0f, 0.0f };
+	m_invTransformRow1 = { 0.0f, 1.0f, 0.0f, 0.0f };
+	m_invTransformRow2 = { 0.0f, 0.0f, 1.0f, 0.0f };
+
+	m_aabb = { vec3(-1.0f), vec3(1.0f) };
 }
 
-__host__ __device__ inline Hittable::Hittable(Type type, const Payload &payload, const Material2 &material)
+__host__ __device__ inline Hittable::Hittable(Type type, const vec3 &position, const vec3 &rotation, const vec3 &scale, const Payload &payload, const Material2 &material)
 	: m_type(type),
 	m_material(material),
 	m_payload(payload)
 {
+	// compute transform and its inverse
+	float4 worldToLocalRows[3];
+	float4 localToWorldRows[3];
+	worldTransform(position, rotation, scale, localToWorldRows, worldToLocalRows);
+
+	m_invTransformRow0 = worldToLocalRows[0];
+	m_invTransformRow1 = worldToLocalRows[1];
+	m_invTransformRow2 = worldToLocalRows[2];
+
+	// compute aabb
+	{
+		m_aabb.m_min = vec3(FLT_MAX);
+		m_aabb.m_max = vec3(-FLT_MAX);
+
+		for (int z = -1; z < 2; z += 2)
+		{
+			for (int y = -1; y < 2; y += 2)
+			{
+				for (int x = -1; x < 2; x += 2)
+				{
+					vec3 pos;
+					pos.x = dot(vec3((float)x, (float)y, (float)z), vec3(localToWorldRows[0].x, localToWorldRows[0].y, localToWorldRows[0].z)) + localToWorldRows[0].w;
+					pos.y = dot(vec3((float)x, (float)y, (float)z), vec3(localToWorldRows[1].x, localToWorldRows[1].y, localToWorldRows[1].z)) + localToWorldRows[1].w;
+					pos.z = dot(vec3((float)x, (float)y, (float)z), vec3(localToWorldRows[2].x, localToWorldRows[2].y, localToWorldRows[2].z)) + localToWorldRows[2].w;
+
+					m_aabb.m_min = min(m_aabb.m_min, pos);
+					m_aabb.m_max = max(m_aabb.m_max, pos);
+				}
+			}
+		}
+	}
 }
 
 __host__ __device__ inline bool Hittable::hit(const Ray &r, float tMin, float tMax, HitRecord &rec) const
 {
+	// transform ray into local space
+	Ray lr;
+	lr.m_origin.x = dot(r.m_origin, vec3(m_invTransformRow0.x, m_invTransformRow0.y, m_invTransformRow0.z)) + m_invTransformRow0.w;
+	lr.m_origin.y = dot(r.m_origin, vec3(m_invTransformRow1.x, m_invTransformRow1.y, m_invTransformRow1.z)) + m_invTransformRow1.w;
+	lr.m_origin.z = dot(r.m_origin, vec3(m_invTransformRow2.x, m_invTransformRow2.y, m_invTransformRow2.z)) + m_invTransformRow2.w;
+
+	lr.m_dir.x = dot(r.m_dir, vec3(m_invTransformRow0.x, m_invTransformRow0.y, m_invTransformRow0.z));
+	lr.m_dir.y = dot(r.m_dir, vec3(m_invTransformRow1.x, m_invTransformRow1.y, m_invTransformRow1.z));
+	lr.m_dir.z = dot(r.m_dir, vec3(m_invTransformRow2.x, m_invTransformRow2.y, m_invTransformRow2.z));
+
+	bool result = false;
+	float t;
+	vec3 normal;
+
 	switch (m_type)
 	{
 	case SPHERE:
-		return hitSphere(r, tMin, tMax, rec);
+		result = hitSphere(lr, tMin, tMax, t, normal); break;
 	case CYLINDER:
-		return hitCylinder(r, tMin, tMax, rec);
+		result = hitCylinder(lr, tMin, tMax, rec); break;
 	case DISK:
-		return hitDisk(r, tMin, tMax, rec);
+		result = hitDisk(lr, tMin, tMax, rec); break;
 	case CONE:
-		return hitCone(r, tMin, tMax, rec);
+		result = hitCone(lr, tMin, tMax, rec); break;
 	case PARABOLOID:
-		return hitParaboloid(r, tMin, tMax, rec);
+		result = hitParaboloid(lr, tMin, tMax, rec); break;
 	default:
 		break;
 	}
-	return false;
+
+	// transform normal to world space
+	if (result)
+	{
+		vec3 tmp;
+		tmp.x = dot(normal, vec3(m_invTransformRow0.x, m_invTransformRow1.x, m_invTransformRow2.x));
+		tmp.y = dot(normal, vec3(m_invTransformRow0.y, m_invTransformRow1.y, m_invTransformRow2.y));
+		tmp.z = dot(normal, vec3(m_invTransformRow0.z, m_invTransformRow1.z, m_invTransformRow2.z));
+
+		rec.m_t = t;
+		rec.m_p = r.at(rec.m_t);
+		rec.setFaceNormal(r, normalize(tmp));
+		rec.m_material = &m_material;
+	}
+
+	return result;
 }
 
-__host__ __device__ inline bool Hittable::boundingBox(AABB &outputBox) const
+inline bool Hittable::boundingBox(AABB &outputBox) const
 {
-	switch (m_type)
-	{
-	case SPHERE:
-		return sphereBoundingBox(outputBox);
-	case CYLINDER:
-		return cylinderBoundingBox(outputBox);
-	case DISK:
-		return diskBoundingBox(outputBox);
-	case CONE:
-		return coneBoundingBox(outputBox);
-	case PARABOLOID:
-		return paraboloidBoundingBox(outputBox);
-	default:
-		break;
-	}
-	return false;
+	outputBox = m_aabb;
+	return true;
 }
 
-__host__ __device__ inline bool Hittable::hitSphere(const Ray &r, float tMin, float tMax, HitRecord &rec) const
+__host__ __device__ inline bool Hittable::hitSphere(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const
 {
 	const auto &sphere = m_payload.m_sphere;
-	vec3 oc = r.origin() - sphere.m_center;
+	vec3 oc = r.origin();// -sphere.m_center;
 	float a = length_squared(r.direction());
 	float b = 2.0f * dot(oc, r.direction());
-	float c = length_squared(oc) - sphere.m_radius * sphere.m_radius;
+	float c = length_squared(oc) - 1.0f;// sphere.m_radius *sphere.m_radius;
 
 	// solve the quadratic equation
 	float t0 = 0.0f;
@@ -97,11 +148,8 @@ __host__ __device__ inline bool Hittable::hitSphere(const Ray &r, float tMin, fl
 	}
 
 	// get the closest t that is greater than tMin
-	rec.m_t = t0 > tMin ? t0 : t1;
-	rec.m_p = r.at(rec.m_t);
-	vec3 outwardNormal = (rec.m_p - sphere.m_center) / sphere.m_radius;
-	rec.setFaceNormal(r, outwardNormal);
-	rec.m_material = &m_material;
+	t = t0 > tMin ? t0 : t1;
+	normal = r.at(t);// (rec.m_p - sphere.m_center) / sphere.m_radius;
 	return true;
 }
 
@@ -280,55 +328,5 @@ __host__ __device__ inline bool Hittable::hitParaboloid(const Ray &r, float tMin
 		rec.setFaceNormal(r, outwardNormal);
 	}
 	rec.m_material = &m_material;
-	return true;
-}
-
-__host__ __device__ inline bool Hittable::sphereBoundingBox(AABB &outputBox) const
-{
-	const auto &sphere = m_payload.m_sphere;
-	outputBox = AABB(
-		sphere.m_center - vec3(sphere.m_radius, sphere.m_radius, sphere.m_radius),
-		sphere.m_center + vec3(sphere.m_radius, sphere.m_radius, sphere.m_radius)
-	);
-	return true;
-}
-
-__host__ __device__ inline bool Hittable::cylinderBoundingBox(AABB &outputBox) const
-{
-	const auto &cylinder = m_payload.m_cylinder;
-	outputBox = AABB(
-		cylinder.m_center - vec3(cylinder.m_radius, cylinder.m_halfHeight, cylinder.m_radius),
-		cylinder.m_center + vec3(cylinder.m_radius, cylinder.m_halfHeight, cylinder.m_radius)
-	);
-	return true;
-}
-
-__host__ __device__ inline bool Hittable::diskBoundingBox(AABB &outputBox) const
-{
-	const auto &disk = m_payload.m_disk;
-	outputBox = AABB(
-		disk.m_center - vec3(disk.m_radius, -FLT_EPSILON, disk.m_radius),
-		disk.m_center + vec3(disk.m_radius, FLT_EPSILON, disk.m_radius)
-	);
-	return true;
-}
-
-__host__ __device__ inline bool Hittable::coneBoundingBox(AABB &outputBox) const
-{
-	const auto &cone = m_payload.m_cone;
-	outputBox = AABB(
-		cone.m_center - vec3(cone.m_radius, 0.0f, cone.m_radius),
-		cone.m_center + vec3(cone.m_radius, cone.m_height, cone.m_radius)
-	);
-	return true;
-}
-
-__host__ __device__ inline bool Hittable::paraboloidBoundingBox(AABB &outputBox) const
-{
-	const auto &para = m_payload.m_paraboloid;
-	outputBox = AABB(
-		para.m_center - vec3(para.m_radius, 0.0f, para.m_radius),
-		para.m_center + vec3(para.m_radius, para.m_height, para.m_radius)
-	);
 	return true;
 }
