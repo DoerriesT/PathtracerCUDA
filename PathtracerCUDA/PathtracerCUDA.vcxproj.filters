@@ -24,9 +24,6 @@
     <ClCompile Include="src\BVH.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\Pathtracer.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
     <ClCompile Include="src\main.cpp">
       <Filter>src</Filter>
     </ClCompile>
@@ -80,6 +77,12 @@
     <ClInclude Include="src\Pathtracer.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="src\HitRecord.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Material.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="src\kernels\initRandState.cu">
@@ -88,5 +91,22 @@
     <CudaCompile Include="src\kernels\trace.cu">
       <Filter>src\kernels</Filter>
     </CudaCompile>
+    <CudaCompile Include="src\Pathtracer.cpp">
+      <Filter>src</Filter>
+    </CudaCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="src\Camera.inl">
+      <Filter>src</Filter>
+    </None>
+    <None Include="src\Hittable.inl">
+      <Filter>src</Filter>
+    </None>
+    <None Include="src\Material.inl">
+      <Filter>src</Filter>
+    </None>
+    <None Include="src\vec3.inl">
+      <Filter>src</Filter>
+    </None>
   </ItemGroup>
 </Project>
