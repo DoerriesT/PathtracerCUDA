@@ -2,14 +2,14 @@
 #include <algorithm>
 #include <cassert>
 
-void BVH::build(size_t elementCount, const Hittable *elements, uint32_t maxLeafElements)
+void BVH::build(size_t elementCount, const CpuHittable *elements, uint32_t maxLeafElements)
 {
 	m_maxLeafElements = maxLeafElements;
 	m_nodes.clear();
 	m_nodes.reserve(elementCount - 1 + elementCount);
 	m_elements.clear();
 	m_elements.resize(elementCount);
-	memcpy(m_elements.data(), elements, elementCount * sizeof(Hittable));
+	memcpy(m_elements.data(), elements, elementCount * sizeof(CpuHittable));
 
 	buildRecursive(0, elementCount);
 }
@@ -19,7 +19,7 @@ const std::vector<BVHNode> &BVH::getNodes() const
 	return m_nodes;
 }
 
-const std::vector<Hittable> &BVH::getElements() const
+const std::vector<CpuHittable> &BVH::getElements() const
 {
 	return m_elements;
 }
@@ -77,11 +77,7 @@ uint32_t BVH::buildRecursive(size_t begin, size_t end)
 	// compute node aabb
 	for (size_t i = begin; i < end; ++i)
 	{
-		AABB elemAabb;
-		bool bboxSupport = m_elements[i].boundingBox(elemAabb);
-		assert(bboxSupport);
-
-		node.m_aabb = AABB(node.m_aabb, elemAabb);
+		node.m_aabb = AABB(node.m_aabb, m_elements[i].getAABB());
 	}
 
 	if (end - begin > m_maxLeafElements)
@@ -97,8 +93,7 @@ uint32_t BVH::buildRecursive(size_t begin, size_t end)
 
 		for (size_t i = begin; i < end; ++i)
 		{
-			AABB elemAabb;
-			m_elements[i].boundingBox(elemAabb);
+			AABB elemAabb = m_elements[i].getAABB();
 
 			const vec3 centroid = (elemAabb.m_min + elemAabb.m_max) * 0.5f;
 			const vec3 relativeOffset = (centroid - node.m_aabb.m_min) / nodeAabbExtent;
@@ -155,10 +150,9 @@ uint32_t BVH::buildRecursive(size_t begin, size_t end)
 			}
 		}
 
-		const Hittable *pMid = std::partition(m_elements.data() + begin, m_elements.data() + end, [&](const auto &item)
+		const CpuHittable *pMid = std::partition(m_elements.data() + begin, m_elements.data() + end, [&](const auto &item)
 			{
-				AABB elemAabb;
-				item.boundingBox(elemAabb);
+				AABB elemAabb = item.getAABB();
 				const vec3 centroid = (elemAabb.m_min + elemAabb.m_max) * 0.5f;
 				float relativeOffset = ((centroid[bestAxis] - node.m_aabb.m_min[bestAxis]) / nodeAabbExtent[bestAxis]);
 				int bucketIdx = int(8.0f * relativeOffset);
@@ -177,10 +171,10 @@ uint32_t BVH::buildRecursive(size_t begin, size_t end)
 				{
 					AABB aabb;
 
-					lhs.boundingBox(aabb);
+					aabb = lhs.getAABB();
 					const vec3 lhsCentroid = (aabb.m_min + aabb.m_max) * 0.5f;
 
-					rhs.boundingBox(aabb);
+					aabb = rhs.getAABB();
 					const vec3 rhsCentroid = (aabb.m_min + aabb.m_max) * 0.5f;
 
 					return lhsCentroid[bestAxis] < rhsCentroid[bestAxis];

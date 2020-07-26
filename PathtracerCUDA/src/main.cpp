@@ -39,38 +39,38 @@ int main()
 		std::default_random_engine e;
 		std::uniform_real_distribution<float> d(0.0f, 1.0f);
 
-		std::vector<Hittable> hittablesCpu;
+		std::vector<CpuHittable> hittablesCpu;
 		hittablesCpu.reserve(22 * 22 + 4);
 
 		//// cornell box
 		//{
 		//	// right side
-		//	hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(1.0f, 1.0f, 0.0f), vec3(0.0f, radians(-90.0f), radians(-90.0f)), vec3(1.0f), Material2(vec3(0.0f, 1.0f, 0.0f))));
+		//	hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(1.0f, 1.0f, 0.0f), vec3(0.0f, radians(-90.0f), radians(-90.0f)), vec3(1.0f), Material2(vec3(0.0f, 1.0f, 0.0f))));
 		//
 		//	// left side
-		//	hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(-1.0f, 1.0f, 0.0f), vec3(0.0f, radians(90.0f), radians(90.0f)), vec3(1.0f), Material2(vec3(1.0f, 0.0f, 0.0f))));
+		//	hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(-1.0f, 1.0f, 0.0f), vec3(0.0f, radians(90.0f), radians(90.0f)), vec3(1.0f), Material2(vec3(1.0f, 0.0f, 0.0f))));
 		//
 		//	// back
-		//	hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(0.0f, 1.0f, -1.0f),vec3(radians(-90.0f), 0.0f, 0.0f), vec3(1.0f), Material2(vec3(1.0f, 1.0f, 1.0f))));
+		//	hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(0.0f, 1.0f, -1.0f),vec3(radians(-90.0f), 0.0f, 0.0f), vec3(1.0f), Material2(vec3(1.0f, 1.0f, 1.0f))));
 		//
 		//	// top
-		//	hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(0.0f, 2.0f, 0.0f), vec3(), vec3(1.0f), Material2(vec3(1.0f, 1.0f, 1.0f))));
+		//	hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(0.0f, 2.0f, 0.0f), vec3(), vec3(1.0f), Material2(vec3(1.0f, 1.0f, 1.0f))));
 		//
 		//	// bottom
-		//	hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(0.0f, 0.0f, 0.0f), vec3(), vec3(1.0f), Material2(vec3(1.0f, 1.0f, 1.0f))));
+		//	hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(0.0f, 0.0f, 0.0f), vec3(), vec3(1.0f), Material2(vec3(1.0f, 1.0f, 1.0f))));
 		//
 		//	// light
-		//	hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(0.0f, 1.99f, 0.0f), vec3(), vec3(0.3f), Material2(vec3(1.0f, 1.0f, 1.0f), vec3(10.0f))));
+		//	hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(0.0f, 1.99f, 0.0f), vec3(), vec3(0.3f), Material2(vec3(1.0f, 1.0f, 1.0f), vec3(10.0f))));
 		//
 		//	// big box
-		//	hittablesCpu.push_back(Hittable(Hittable::Type::CUBE, vec3(-0.5f, 0.75f, -0.5f), vec3(0.0f, radians(40.0f), 0.0f), vec3(0.25f, 0.75f, 0.25f), Material2(vec3(1.0f, 1.0f, 1.0f))));
+		//	hittablesCpu.push_back(CpuHittable(HittableType::CUBE, vec3(-0.5f, 0.75f, -0.5f), vec3(0.0f, radians(40.0f), 0.0f), vec3(0.25f, 0.75f, 0.25f), Material2(vec3(1.0f, 1.0f, 1.0f))));
 		//	
 		//	// small box
-		//	hittablesCpu.push_back(Hittable(Hittable::Type::CUBE, vec3(0.5f, 0.25f, 0.5f), vec3(0.0f, radians(-30.0f), 0.0f), vec3(0.25f), Material2(vec3(1.0f, 1.0f, 1.0f))));
+		//	hittablesCpu.push_back(CpuHittable(HittableType::CUBE, vec3(0.5f, 0.25f, 0.5f), vec3(0.0f, radians(-30.0f), 0.0f), vec3(0.25f), Material2(vec3(1.0f, 1.0f, 1.0f))));
 		//}
 
-		hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, vec3(0.0f, -1000.0f, 0.0f), vec3(), vec3(1000.0f), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
-		//hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(0.0f, 0.0f, 0.0f), vec3(), vec3(100.0f, 1.0f, 100.0f), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
+		hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, vec3(0.0f, -1000.0f, 0.0f), vec3(), vec3(1000.0f), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
+		//hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(0.0f, 0.0f, 0.0f), vec3(), vec3(100.0f, 1.0f, 100.0f), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
 
 		
 		for (int a = -11; a < 11; ++a)
@@ -82,49 +82,58 @@ int main()
 				if (length(center - vec3(4.0f, 0.2f, 0.0f)) > 0.9f)
 				{
 					auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
-					hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, center, vec3(), vec3(0.2f), Material2(albedo)));
+					hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, center, vec3(), vec3(0.2f), Material2(albedo)));
 					//if (chooseMat < 0.8f)
 					//{
 					//	// diffuse
 					//	auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
-					//	hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::LAMBERTIAN, albedo)));
+					//	hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, CpuHittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::LAMBERTIAN, albedo)));
 					//}
 					//else if (chooseMat < 0.95f)
 					//{
 					//	// metal
 					//	auto albedo = vec3(d(e), d(e), d(e)) * 0.5f + 0.5f;
 					//	auto fuzz = d(e) * 0.5f;
-					//	hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::METAL, albedo, fuzz)));
+					//	hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, CpuHittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::METAL, albedo, fuzz)));
 					//}
 					//else
 					//{
 					//	// glass
-					//	hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
+					//	hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, CpuHittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
 					//}
 				}
 			}
 		}
 
-		//hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(0.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
+		//hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, CpuHittable::Payload(Sphere{ vec3(0.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
 		//
-		//hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(-4.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(0.4f, 0.2f, 0.1f))));
+		//hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, CpuHittable::Payload(Sphere{ vec3(-4.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(0.4f, 0.2f, 0.1f))));
 		//
-		//hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(4.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::METAL, vec3(0.7f, 0.6f, 0.5f), 0.0f)));
+		//hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, CpuHittable::Payload(Sphere{ vec3(4.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::METAL, vec3(0.7f, 0.6f, 0.5f), 0.0f)));
 		//
-		//hittablesCpu.push_back(Hittable(Hittable::Type::CYLINDER, Hittable::Payload(Cylinder{ vec3(10.0f, 1.0f, 10.0f), 1.0f, 1.0f }), Material(Material::Type::DIELECTRIC, vec3(1.0f, 1.0f, 1.0f), 0.0f, 1.5f)));
+		//hittablesCpu.push_back(CpuHittable(HittableType::CYLINDER, CpuHittable::Payload(Cylinder{ vec3(10.0f, 1.0f, 10.0f), 1.0f, 1.0f }), Material(Material::Type::DIELECTRIC, vec3(1.0f, 1.0f, 1.0f), 0.0f, 1.5f)));
 		//
-		//hittablesCpu.push_back(Hittable(Hittable::Type::DISK, Hittable::Payload(Disk{ vec3(10.0f, 2.0f, 10.0f), 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(1.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
+		//hittablesCpu.push_back(CpuHittable(HittableType::DISK, CpuHittable::Payload(Disk{ vec3(10.0f, 2.0f, 10.0f), 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(1.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
 		//
-		//hittablesCpu.push_back(Hittable(Hittable::Type::CONE, Hittable::Payload(Cone{ vec3(0.0f, 3.0f, 0.0f), 1.0f, 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(1.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
+		//hittablesCpu.push_back(CpuHittable(HittableType::CONE, CpuHittable::Payload(Cone{ vec3(0.0f, 3.0f, 0.0f), 1.0f, 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(1.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
 		//
-		//hittablesCpu.push_back(Hittable(Hittable::Type::PARABOLOID, Hittable::Payload(Paraboloid{ vec3(3.0f, 1.0f, 3.0f), 1.0f, 3.0f }), Material(Material::Type::METAL, vec3(1.0f, 1.0f, 1.0f), 0.0f, 1.5f)));
+		//hittablesCpu.push_back(CpuHittable(HittableType::PARABOLOID, CpuHittable::Payload(Paraboloid{ vec3(3.0f, 1.0f, 3.0f), 1.0f, 3.0f }), Material(Material::Type::METAL, vec3(1.0f, 1.0f, 1.0f), 0.0f, 1.5f)));
 
 
 		bvh.build(hittablesCpu.size(), hittablesCpu.data(), 4);
 		assert(bvh.validate());
 	}
 
-	pathtracer.setBVH((uint32_t)bvh.getNodes().size(), bvh.getNodes().data(), (uint32_t)bvh.getElements().size(), bvh.getElements().data());
+	// translate hittables to their cpu version
+	auto &bvhElements = bvh.getElements();
+	std::vector<Hittable> gpuHittables;
+	gpuHittables.reserve(bvh.getElements().size());
+	for (const auto &e : bvhElements)
+	{
+		gpuHittables.push_back(e.getGpuHittable());
+	}
+
+	pathtracer.setBVH((uint32_t)bvh.getNodes().size(), bvh.getNodes().data(), (uint32_t)gpuHittables.size(), gpuHittables.data());
 
 	double lastTime = glfwGetTime();
 	double timeDelta = 0.0;

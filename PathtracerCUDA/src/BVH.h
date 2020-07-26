@@ -14,9 +14,9 @@ struct BVHNode
 class BVH
 {
 public:
-	void build(size_t elementCount, const Hittable *elements, uint32_t maxLeafElements);
+	void build(size_t elementCount, const CpuHittable *elements, uint32_t maxLeafElements);
 	const std::vector<BVHNode> &getNodes() const;
-	const std::vector<Hittable> &getElements() const;
+	const std::vector<CpuHittable> &getElements() const;
 	uint32_t getDepth(uint32_t node = 0) const;
 	bool validate();
 	bool trace(const vec3 &origin, const vec3 &dir, float &t);
@@ -25,7 +25,7 @@ private:
 
 	uint32_t m_maxLeafElements = 1;
 	std::vector<BVHNode> m_nodes;
-	std::vector<Hittable> m_elements;
+	std::vector<CpuHittable> m_elements;
 
 	uint32_t buildRecursive(size_t begin, size_t end);
 	bool validateRecursive(uint32_t node, bool *reachedLeafs);

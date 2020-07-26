@@ -88,6 +88,7 @@
     <ClCompile Include="src\glad.c" />
     <CudaCompile Include="src\kernels\initRandState.cu" />
     <CudaCompile Include="src\kernels\trace.cu" />
+    <ClCompile Include="src\Hittable.cpp" />
     <ClCompile Include="src\main.cpp" />
     <CudaCompile Include="src\Pathtracer.cpp" />
     <ClCompile Include="src\UserInput.cpp" />
