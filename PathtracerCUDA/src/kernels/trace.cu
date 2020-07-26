@@ -106,7 +106,7 @@ __device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, 
 			vec3 unitDir = normalize(ray.m_dir);
 			float t = unitDir.y * 0.5f + 0.5f;
 			vec3 c = (1.0f - t) * vec3(1.0f, 1.0f, 1.0f) + t * vec3(0.5f, 0.7f, 1.0f);
-			c = 0.0f;
+			//c = 0.0f;
 			L += beta * c;
 			break;
 		}

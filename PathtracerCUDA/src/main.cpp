@@ -42,68 +42,68 @@ int main()
 		std::vector<Hittable> hittablesCpu;
 		hittablesCpu.reserve(22 * 22 + 4);
 
-		// cornell box
-		{
-			// right side
-			hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(1.0f, 1.0f, 0.0f), vec3(0.0f, radians(-90.0f), radians(-90.0f)), vec3(1.0f), Hittable::Payload(Sphere{}), Material2(vec3(0.0f, 1.0f, 0.0f))));
+		//// cornell box
+		//{
+		//	// right side
+		//	hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(1.0f, 1.0f, 0.0f), vec3(0.0f, radians(-90.0f), radians(-90.0f)), vec3(1.0f), Material2(vec3(0.0f, 1.0f, 0.0f))));
+		//
+		//	// left side
+		//	hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(-1.0f, 1.0f, 0.0f), vec3(0.0f, radians(90.0f), radians(90.0f)), vec3(1.0f), Material2(vec3(1.0f, 0.0f, 0.0f))));
+		//
+		//	// back
+		//	hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(0.0f, 1.0f, -1.0f),vec3(radians(-90.0f), 0.0f, 0.0f), vec3(1.0f), Material2(vec3(1.0f, 1.0f, 1.0f))));
+		//
+		//	// top
+		//	hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(0.0f, 2.0f, 0.0f), vec3(), vec3(1.0f), Material2(vec3(1.0f, 1.0f, 1.0f))));
+		//
+		//	// bottom
+		//	hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(0.0f, 0.0f, 0.0f), vec3(), vec3(1.0f), Material2(vec3(1.0f, 1.0f, 1.0f))));
+		//
+		//	// light
+		//	hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(0.0f, 1.99f, 0.0f), vec3(), vec3(0.3f), Material2(vec3(1.0f, 1.0f, 1.0f), vec3(10.0f))));
+		//
+		//	// big box
+		//	hittablesCpu.push_back(Hittable(Hittable::Type::CUBE, vec3(-0.5f, 0.75f, -0.5f), vec3(0.0f, radians(40.0f), 0.0f), vec3(0.25f, 0.75f, 0.25f), Material2(vec3(1.0f, 1.0f, 1.0f))));
+		//	
+		//	// small box
+		//	hittablesCpu.push_back(Hittable(Hittable::Type::CUBE, vec3(0.5f, 0.25f, 0.5f), vec3(0.0f, radians(-30.0f), 0.0f), vec3(0.25f), Material2(vec3(1.0f, 1.0f, 1.0f))));
+		//}
 
-			// left side
-			hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(-1.0f, 1.0f, 0.0f), vec3(0.0f, radians(90.0f), radians(90.0f)), vec3(1.0f), Hittable::Payload(Sphere{}), Material2(vec3(1.0f, 0.0f, 0.0f))));
-
-			// back
-			hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(0.0f, 1.0f, -1.0f),vec3(radians(-90.0f), 0.0f, 0.0f), vec3(1.0f), Hittable::Payload(Sphere{}), Material2(vec3(1.0f, 1.0f, 1.0f))));
-
-			// top
-			hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(0.0f, 2.0f, 0.0f), vec3(), vec3(1.0f), Hittable::Payload(Sphere{}), Material2(vec3(1.0f, 1.0f, 1.0f))));
-
-			// bottom
-			hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(0.0f, 0.0f, 0.0f), vec3(), vec3(1.0f), Hittable::Payload(Sphere{}), Material2(vec3(1.0f, 1.0f, 1.0f))));
-
-			// light
-			hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(0.0f, 1.99f, 0.0f), vec3(), vec3(0.3f), Hittable::Payload(Sphere{}), Material2(vec3(1.0f, 1.0f, 1.0f), vec3(10.0f))));
-
-			// big box
-			hittablesCpu.push_back(Hittable(Hittable::Type::CUBE, vec3(-0.5f, 0.75f, -0.5f), vec3(0.0f, radians(40.0f), 0.0f), vec3(0.25f, 0.75f, 0.25f), Hittable::Payload(Sphere{}), Material2(vec3(1.0f, 1.0f, 1.0f))));
-			
-			// small box
-			hittablesCpu.push_back(Hittable(Hittable::Type::CUBE, vec3(0.5f, 0.25f, 0.5f), vec3(0.0f, radians(-30.0f), 0.0f), vec3(0.25f), Hittable::Payload(Sphere{}), Material2(vec3(1.0f, 1.0f, 1.0f))));
-		}
-
-		//hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, vec3(0.0f, -1000.0f, 0.0f), vec3(), vec3(1000.0f), Hittable::Payload(Sphere{ vec3(0.0f, -1000.0f, 0.0f), 1000.0f }), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
-		hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(0.0f, 0.0f, 0.0f), vec3(), vec3(100.0f, 1.0f, 100.0f), Hittable::Payload(Sphere{ vec3(0.0f, -1000.0f, 0.0f), 1000.0f }), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
+		hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, vec3(0.0f, -1000.0f, 0.0f), vec3(), vec3(1000.0f), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
+		//hittablesCpu.push_back(Hittable(Hittable::Type::QUAD, vec3(0.0f, 0.0f, 0.0f), vec3(), vec3(100.0f, 1.0f, 100.0f), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
 
 		
-		//for (int a = -11; a < 11; ++a)
-		//{
-		//	for (int b = -11; b < 11; ++b)
-		//	{
-		//		auto chooseMat = d(e);
-		//		vec3 center(a + 0.9f * d(e), 0.2f, b + 0.9f * d(e));
-		//		if (length(center - vec3(4.0f, 0.2f, 0.0f)) > 0.9f)
-		//		{
-		//			auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
-		//			hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, center, vec3(), vec3(0.2f), Hittable::Payload(Sphere{ center, 0.2f }), Material2(albedo)));
-		//			//if (chooseMat < 0.8f)
-		//			//{
-		//			//	// diffuse
-		//			//	auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
-		//			//	hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::LAMBERTIAN, albedo)));
-		//			//}
-		//			//else if (chooseMat < 0.95f)
-		//			//{
-		//			//	// metal
-		//			//	auto albedo = vec3(d(e), d(e), d(e)) * 0.5f + 0.5f;
-		//			//	auto fuzz = d(e) * 0.5f;
-		//			//	hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::METAL, albedo, fuzz)));
-		//			//}
-		//			//else
-		//			//{
-		//			//	// glass
-		//			//	hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
-		//			//}
-		//		}
-		//	}
-		//}
+		for (int a = -11; a < 11; ++a)
+		{
+			for (int b = -11; b < 11; ++b)
+			{
+				auto chooseMat = d(e);
+				vec3 center(a + 0.9f * d(e), 0.2f, b + 0.9f * d(e));
+				if (length(center - vec3(4.0f, 0.2f, 0.0f)) > 0.9f)
+				{
+					auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
+					hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, center, vec3(), vec3(0.2f), Material2(albedo)));
+					//if (chooseMat < 0.8f)
+					//{
+					//	// diffuse
+					//	auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
+					//	hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::LAMBERTIAN, albedo)));
+					//}
+					//else if (chooseMat < 0.95f)
+					//{
+					//	// metal
+					//	auto albedo = vec3(d(e), d(e), d(e)) * 0.5f + 0.5f;
+					//	auto fuzz = d(e) * 0.5f;
+					//	hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::METAL, albedo, fuzz)));
+					//}
+					//else
+					//{
+					//	// glass
+					//	hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
+					//}
+				}
+			}
+		}
 
 		//hittablesCpu.push_back(Hittable(Hittable::Type::SPHERE, Hittable::Payload(Sphere{ vec3(0.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
 		//

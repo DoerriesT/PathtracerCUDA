@@ -56,8 +56,7 @@ __host__ __device__ inline vec3 quadricNormal(const vec3 &p)
 
 __host__ __device__ inline Hittable::Hittable()
 	:m_type(SPHERE),
-	m_material(),
-	m_payload(Sphere{ vec3(0.0f), 1.0f })
+	m_material()
 {
 	m_invTransformRow0 = { 1.0f, 0.0f, 0.0f, 0.0f };
 	m_invTransformRow1 = { 0.0f, 1.0f, 0.0f, 0.0f };
@@ -66,10 +65,9 @@ __host__ __device__ inline Hittable::Hittable()
 	m_aabb = { vec3(-1.0f), vec3(1.0f) };
 }
 
-__host__ __device__ inline Hittable::Hittable(Type type, const vec3 &position, const vec3 &rotation, const vec3 &scale, const Payload &payload, const Material2 &material)
+__host__ __device__ inline Hittable::Hittable(Type type, const vec3 &position, const vec3 &rotation, const vec3 &scale, const Material2 &material)
 	: m_type(type),
-	m_material(material),
-	m_payload(payload)
+	m_material(material)
 {
 	// compute transform and its inverse
 	float4 worldToLocalRows[3];
