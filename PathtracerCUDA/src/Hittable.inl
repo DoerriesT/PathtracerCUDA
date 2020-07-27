@@ -87,24 +87,26 @@ __host__ __device__ inline bool Hittable::hit(const Ray &r, float tMin, float tM
 
 	bool result = false;
 	float t;
+	float u;
+	float v;
 	vec3 normal;
 
 	switch (m_type)
 	{
 	case SPHERE:
-		result = hitSphere(lr, tMin, tMax, t, normal); break;
+		result = hitSphere(lr, tMin, tMax, t, normal, u, v); break;
 	case CYLINDER:
-		result = hitCylinder(lr, tMin, tMax, t, normal); break;
+		result = hitCylinder(lr, tMin, tMax, t, normal, u, v); break;
 	case DISK:
-		result = hitDisk(lr, tMin, tMax, t, normal); break;
+		result = hitDisk(lr, tMin, tMax, t, normal, u, v); break;
 	case CONE:
-		result = hitCone(lr, tMin, tMax, t, normal); break;
+		result = hitCone(lr, tMin, tMax, t, normal, u, v); break;
 	case PARABOLOID:
-		result = hitParaboloid(lr, tMin, tMax, t, normal); break;
+		result = hitParaboloid(lr, tMin, tMax, t, normal, u, v); break;
 	case QUAD:
-		result = hitQuad(lr, tMin, tMax, t, normal); break;
+		result = hitQuad(lr, tMin, tMax, t, normal, u, v); break;
 	case CUBE:
-		result = hitBox(lr, tMin, tMax, t, normal); break;
+		result = hitBox(lr, tMin, tMax, t, normal, u, v); break;
 	default:
 		break;
 	}
@@ -121,12 +123,14 @@ __host__ __device__ inline bool Hittable::hit(const Ray &r, float tMin, float tM
 		rec.m_p = r.at(rec.m_t);
 		rec.setFaceNormal(r, normalize(tmp));
 		rec.m_material = &m_material;
+		rec.m_texCoordU = u;
+		rec.m_texCoordV = v;
 	}
 
 	return result;
 }
 
-__host__ __device__ inline bool Hittable::hitSphere(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const
+__host__ __device__ inline bool Hittable::hitSphere(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const
 {
 	vec3 oc = r.origin();
 	float a = length_squared(r.direction());
@@ -143,11 +147,18 @@ __host__ __device__ inline bool Hittable::hitSphere(const Ray &r, float tMin, fl
 
 	// get the closest t that is greater than tMin
 	t = t0 > tMin ? t0 : t1;
-	normal = r.at(t);
+	normal = normalize(r.at(t));
+
+	float theta = acos(normal.y);
+	float phi = atan2(normal.z, normal.x);
+	u = 1.0f - phi / (2.0f * PI);
+	v = theta / PI;
+
+
 	return true;
 }
 
-__host__ __device__ inline bool Hittable::hitCylinder(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const
+__host__ __device__ inline bool Hittable::hitCylinder(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const
 {
 	// solve the quadratic equation
 	float t0 = 0.0f;
@@ -172,10 +183,14 @@ __host__ __device__ inline bool Hittable::hitCylinder(const Ray &r, float tMin, 
 	t = hitPointValid0 ? t0 : t1;
 	vec3 p = r.at(t);
 	normal = vec3(p.x, 0.0f, p.z);
+
+	u = acos(p.x) / (2.0f * PI);
+	v = 1.0f - (p.y * 0.5f + 0.5f);
+
 	return true;
 }
 
-__host__ __device__ inline bool Hittable::hitDisk(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const
+__host__ __device__ inline bool Hittable::hitDisk(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const
 {
 	// ray is parallel to disk -> no intersection
 	if (r.m_dir.y == 0.0f)
@@ -202,10 +217,12 @@ __host__ __device__ inline bool Hittable::hitDisk(const Ray &r, float tMin, floa
 	}
 
 	normal = vec3(0.0f, 1.0f, 0.0f);
+	u = hitPointX * 0.5f + 0.5f;
+	v = 1.0f - (hitPointZ * 0.5f + 0.5f);
 	return true;
 }
 
-__host__ __device__ inline bool Hittable::hitCone(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const
+__host__ __device__ inline bool Hittable::hitCone(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const
 {
 	// solve the quadratic equation
 	float t0 = 0.0f;
@@ -235,7 +252,7 @@ __host__ __device__ inline bool Hittable::hitCone(const Ray &r, float tMin, floa
 	return true;
 }
 
-__host__ __device__ inline bool Hittable::hitParaboloid(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const
+__host__ __device__ inline bool Hittable::hitParaboloid(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const
 {
 	// solve the quadratic equation
 	float t0 = 0.0f;
@@ -265,7 +282,7 @@ __host__ __device__ inline bool Hittable::hitParaboloid(const Ray &r, float tMin
 	return true;
 }
 
-inline __host__ __device__ bool Hittable::hitQuad(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const
+inline __host__ __device__ bool Hittable::hitQuad(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const
 {
 	// ray is parallel to quad -> no intersection
 	if (r.m_dir.y == 0.0f)
@@ -284,18 +301,20 @@ inline __host__ __device__ bool Hittable::hitQuad(const Ray &r, float tMin, floa
 	}
 
 	// check that hit point is inside the extent of the quad
-	float absHitPointX = abs(oc.x + r.m_dir.x * t);
-	float absHitPointZ = abs(oc.z + r.m_dir.z * t);
-	if (absHitPointX > 1.0f || absHitPointZ > 1.0f)
+	float hitPointX = oc.x + r.m_dir.x * t;
+	float hitPointZ = oc.z + r.m_dir.z * t;
+	if (abs(hitPointX) > 1.0f || abs(hitPointZ) > 1.0f)
 	{
 		return false;
 	}
 
 	normal = vec3(0.0f, 1.0f, 0.0f);
+	u = hitPointX * 0.5f + 0.5f;
+	v = 1.0f - (hitPointZ * 0.5f + 0.5f);
 	return true;
 }
 
-inline __host__ __device__ bool Hittable::hitBox(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const
+inline __host__ __device__ bool Hittable::hitBox(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const
 {
 	AABB aabb = { vec3(-1.0f), vec3(1.0f) };
 	if (!aabb.intersect(r, tMin, tMax, t))

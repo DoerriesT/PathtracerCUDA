@@ -14,6 +14,8 @@ public:
 	void setBVH(uint32_t nodeCount, const BVHNode *nodes, uint32_t hittableCount, const Hittable *hittables);
 	void render(const Camera &camera, bool ignoreHistory);
 	float getTiming() const;
+	uint32_t loadTexture(const char *path);
+	void setSkyboxTextureHandle(uint32_t handle);
 
 private:
 	uint32_t m_width;
@@ -22,6 +24,8 @@ private:
 	uint32_t m_nodeCount;
 	float m_timing;
 	uint32_t m_accumulatedFrames;
+	uint32_t m_textureCount = 0;
+	uint32_t m_skyboxTextureHandle = 0;
 
 	// gpu resources
 	unsigned int m_pixelBufferGL = 0;
@@ -32,6 +36,7 @@ private:
 	cudaEvent_t m_stopEvent = nullptr;
 	BVHNode *m_gpuBVHNodes = nullptr;
 	Hittable *m_gpuHittables = nullptr;
-	cudaTextureObject_t m_skyboxTexture = 0;
-	cudaArray *m_skyboxTextureMemory = nullptr;
+	cudaTextureObject_t *m_textures = nullptr;
+	cudaTextureObject_t *m_gpuTextures = nullptr;
+	cudaArray **m_textureMemory = nullptr;
 };

@@ -8,8 +8,8 @@ struct Ray;
 class Material2
 {
 public:
-	__host__ __device__ Material2(const vec3 &baseColor = vec3(1.0f), const vec3 &emissive = vec3(0.0f), float roughness = 0.5f, float metalness = 0.0f);
-	__device__ vec3 sample(const Ray &rIn, const HitRecord &rec, curandState &randState, Ray &scattered, float &pdf) const;
+	__host__ __device__ Material2(const vec3 &baseColor = vec3(1.0f), const vec3 &emissive = vec3(0.0f), float roughness = 0.5f, float metalness = 0.0f, uint32_t textureIndex = 0);
+	__device__ vec3 sample(const Ray &rIn, const HitRecord &rec, curandState &randState, Ray &scattered, float &pdf, cudaTextureObject_t *textures) const;
 	__device__ vec3 getEmitted(const Ray &rIn, const HitRecord &rec) const;
 
 private:
@@ -17,6 +17,7 @@ private:
 	vec3 m_emissive;
 	float m_roughness;
 	float m_metalness;
+	uint32_t m_textureIndex;
 };
 
 class MaterialOld

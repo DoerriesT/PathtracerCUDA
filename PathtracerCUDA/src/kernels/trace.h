@@ -20,4 +20,5 @@ __global__ void traceKernel(
 	BVHNode *bvhNodes,
 	curandState *randState,
 	Camera camera,
-	cudaTextureObject_t skyboxTexture);
+	uint32_t skyboxTextureHandle,
+	cudaTextureObject_t *textures);

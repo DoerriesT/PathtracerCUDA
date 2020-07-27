@@ -19,6 +19,11 @@ int main()
 
 	Pathtracer pathtracer(width, height);
 
+	uint32_t skyboxTextureHandle = pathtracer.loadTexture("skybox.hdr");
+	uint32_t earthTextureHandle = pathtracer.loadTexture("earth.png");
+
+	pathtracer.setSkyboxTextureHandle(skyboxTextureHandle);
+
 	auto radians = [](float degree)
 	{
 		return degree * (1.0f / 180.0f) * 3.14159265358979323846f;
@@ -73,7 +78,7 @@ int main()
 		//hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, vec3(0.0f, -1000.0f, 0.0f), vec3(), vec3(1000.0f), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
 		//hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(0.0f, 0.0f, 0.0f), vec3(), vec3(100.0f, 1.0f, 100.0f), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
 
-		
+
 		for (int a = -11; a < 11; ++a)
 		{
 			for (int b = -11; b < 11; ++b)
@@ -105,6 +110,8 @@ int main()
 				}
 			}
 		}
+
+		hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, vec3(0.0f, 1.0f, 0.0f), vec3(), vec3(1.0f), Material2(vec3(0.5f), 0.0f, 0.5f, 0.0f, earthTextureHandle)));
 
 		//hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, CpuHittable::Payload(Sphere{ vec3(0.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
 		//

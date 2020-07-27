@@ -11,6 +11,8 @@ struct HitRecord
 	vec3 m_emitted;
 	const Material2 *m_material;
 	float m_t;
+	float m_texCoordU;
+	float m_texCoordV;
 	bool m_frontFace;
 
 	__host__ __device__ inline void setFaceNormal(const Ray &r, const vec3 &outwardNormal)

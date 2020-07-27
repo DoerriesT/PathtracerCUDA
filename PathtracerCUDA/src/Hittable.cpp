@@ -6,7 +6,7 @@ CpuHittable::CpuHittable()
 	m_invTransformRow1({ 0.0f, 1.0f, 0.0f, 0.0f }),
 	m_invTransformRow2({ 0.0f, 0.0f, 1.0f, 0.0f }),
 	m_material(),
-	m_aabb({vec3(-1.0f), vec3(1.0f)}),
+	m_aabb({ vec3(-1.0f), vec3(1.0f) }),
 	m_type(HittableType::SPHERE)
 {
 }
@@ -19,10 +19,16 @@ CpuHittable::CpuHittable(HittableType type, const vec3 &position, const vec3 &ro
 	m_aabb({ vec3(-1.0f), vec3(1.0f) }),
 	m_type(type)
 {
+	vec3 adjustedScale = scale;
+	if (m_type == HittableType::DISK || m_type == HittableType::QUAD)
+	{
+		adjustedScale.y = 1.0f;
+	}
+
 	// compute transform and its inverse
 	float4 worldToLocalRows[3];
 	float4 localToWorldRows[3];
-	worldTransform(position, rotation, scale, localToWorldRows, worldToLocalRows);
+	worldTransform(position, rotation, adjustedScale, localToWorldRows, worldToLocalRows);
 
 	m_invTransformRow0 = worldToLocalRows[0];
 	m_invTransformRow1 = worldToLocalRows[1];

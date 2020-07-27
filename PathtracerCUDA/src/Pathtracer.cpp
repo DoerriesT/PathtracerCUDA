@@ -11,6 +11,8 @@
 #include "kernels/trace.h"
 #include "stb_image.h"
 
+#define MAX_TEXTURE_COUNT 64
+
 #define checkCudaErrors(val) check_cuda( (val), #val, __FILE__, __LINE__ )
 static void check_cuda(cudaError_t result, char const *const func, const char *const file, int const line)
 {
@@ -30,7 +32,9 @@ Pathtracer::Pathtracer(uint32_t width, uint32_t height)
 	m_hittableCount(),
 	m_nodeCount(),
 	m_timing(),
-	m_accumulatedFrames()
+	m_accumulatedFrames(),
+	m_textures(new cudaTextureObject_t[MAX_TEXTURE_COUNT]),
+	m_textureMemory(new cudaArray *[MAX_TEXTURE_COUNT])
 {
 	// init opengl
 	{
@@ -72,40 +76,7 @@ Pathtracer::Pathtracer(uint32_t width, uint32_t height)
 		checkCudaErrors(cudaEventCreate(&m_startEvent));
 		checkCudaErrors(cudaEventCreate(&m_stopEvent));
 
-		// create skybox texture
-		{
-			// load texture from file
-			int skyboxWidth;
-			int skyboxHeight;
-			int skyboxChannelCount;
-			float *data = stbi_loadf("skybox.hdr", &skyboxWidth, &skyboxHeight, &skyboxChannelCount, 4);
-			assert(data);
-
-			// allocate device memory for texture
-			cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 32, 32, 32, cudaChannelFormatKindFloat);
-			checkCudaErrors(cudaMallocArray(&m_skyboxTextureMemory, &channelDesc, skyboxWidth, skyboxHeight));
-
-			// copy texture to device memory
-			size_t textureWidthBytes = skyboxWidth * 4 * 4; // 4 channels and 4 byte per channel
-			checkCudaErrors(cudaMemcpy2DToArray(m_skyboxTextureMemory, 0, 0, data, textureWidthBytes, textureWidthBytes, skyboxHeight, cudaMemcpyHostToDevice));
-
-			// free cpu memory of texture
-			stbi_image_free(data);
-
-			// create texture object
-			cudaResourceDesc resDesc{};
-			resDesc.resType = cudaResourceTypeArray;
-			resDesc.res.array.array = m_skyboxTextureMemory;
-
-			cudaTextureDesc texDesc{};
-			texDesc.addressMode[0] = cudaAddressModeWrap;
-			texDesc.addressMode[1] = cudaAddressModeClamp;
-			texDesc.filterMode = cudaFilterModeLinear;
-			texDesc.readMode = cudaReadModeElementType;
-			texDesc.normalizedCoords = 1;
-
-			checkCudaErrors(cudaCreateTextureObject(&m_skyboxTexture, &resDesc, &texDesc, nullptr));
-		}
+		checkCudaErrors(cudaMalloc((void **)&m_gpuTextures, MAX_TEXTURE_COUNT * sizeof(cudaTextureObject_t)));
 	}
 }
 
@@ -132,13 +103,21 @@ Pathtracer::~Pathtracer()
 	checkCudaErrors(cudaEventDestroy(m_startEvent));
 	checkCudaErrors(cudaEventDestroy(m_stopEvent));
 
-	// destroy skybox texture
-	checkCudaErrors(cudaDestroyTextureObject(m_skyboxTexture));
-	checkCudaErrors(cudaFreeArray(m_skyboxTextureMemory));
-
 	// delete pixel buffer object
 	glDeleteBuffers(1, &m_pixelBufferGL);
 	assert(glGetError() == GL_NO_ERROR);
+
+	// free textures
+	for (size_t i = 0; i < m_textureCount; ++i)
+	{
+		checkCudaErrors(cudaDestroyTextureObject(m_textures[i]));
+		checkCudaErrors(cudaFreeArray(m_textureMemory[i]));
+	}
+
+	checkCudaErrors(cudaFree(m_gpuTextures));
+
+	delete[] m_textures;
+	delete[] m_textureMemory;
 }
 
 void Pathtracer::setBVH(uint32_t nodeCount, const BVHNode *nodes, uint32_t hittableCount, const Hittable *hittables)
@@ -158,11 +137,11 @@ void Pathtracer::setBVH(uint32_t nodeCount, const BVHNode *nodes, uint32_t hitta
 	// allocate memory for nodes and leaves
 	checkCudaErrors(cudaMalloc((void **)&m_gpuBVHNodes, nodeCount * sizeof(BVHNode)));
 	checkCudaErrors(cudaMalloc((void **)&m_gpuHittables, hittableCount * sizeof(Hittable)));
-	
+
 	// copy from cpu to gpu memory
 	checkCudaErrors(cudaMemcpy(m_gpuBVHNodes, nodes, nodeCount * sizeof(BVHNode), cudaMemcpyKind::cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaMemcpy(m_gpuHittables, hittables, hittableCount * sizeof(Hittable), cudaMemcpyKind::cudaMemcpyHostToDevice));
-	
+
 	m_nodeCount = nodeCount;
 	m_hittableCount = hittableCount;
 }
@@ -188,7 +167,21 @@ void Pathtracer::render(const Camera &camera, bool ignoreHistory)
 	{
 		dim3 threads(8, 8, 1);
 		dim3 blocks((m_width + 7) / 8, (m_height + 7) / 8, 1);
-		traceKernel << <blocks, threads >> > (deviceMem, m_gpuAccumBuffer, ignoreHistory, m_accumulatedFrames, m_width, m_height, m_hittableCount, m_gpuHittables, m_nodeCount, m_gpuBVHNodes, m_gpuRandState, camera, m_skyboxTexture);
+		traceKernel << <blocks, threads >> > (
+			deviceMem,
+			m_gpuAccumBuffer,
+			ignoreHistory,
+			m_accumulatedFrames,
+			m_width,
+			m_height,
+			m_hittableCount,
+			m_gpuHittables,
+			m_nodeCount,
+			m_gpuBVHNodes,
+			m_gpuRandState,
+			camera,
+			m_skyboxTextureHandle,
+			m_gpuTextures);
 	}
 
 	// end tracing
@@ -198,7 +191,7 @@ void Pathtracer::render(const Camera &camera, bool ignoreHistory)
 	checkCudaErrors(cudaDeviceSynchronize());
 
 	checkCudaErrors(cudaEventSynchronize(m_stopEvent));
-	
+
 	checkCudaErrors(cudaEventElapsedTime(&m_timing, m_startEvent, m_stopEvent));
 	checkCudaErrors(cudaGraphicsUnmapResources(1, &m_pixelBufferCuda));
 
@@ -218,4 +211,61 @@ void Pathtracer::render(const Camera &camera, bool ignoreHistory)
 float Pathtracer::getTiming() const
 {
 	return m_timing;
+}
+
+uint32_t Pathtracer::loadTexture(const char *path)
+{
+	if (m_textureCount >= MAX_TEXTURE_COUNT)
+	{
+		return 0;
+	}
+
+	checkCudaErrors(cudaDeviceSynchronize());
+
+	bool hdrTexture = stbi_is_hdr(path);
+
+	// load texture from file
+	int width;
+	int height;
+	int channelCount;
+	void *data = hdrTexture ? (void *)stbi_loadf(path, &width, &height, &channelCount, 4) : (void *)stbi_load(path, &width, &height, &channelCount, 4);
+	assert(data);
+
+	// allocate device memory for texture
+	int channelSize = hdrTexture ? 32 : 8;
+	cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(channelSize, channelSize, channelSize, channelSize, hdrTexture ? cudaChannelFormatKindFloat : cudaChannelFormatKindUnsigned);
+	checkCudaErrors(cudaMallocArray(&m_textureMemory[m_textureCount], &channelDesc, width, height));
+
+	// copy texture to device memory
+	size_t textureWidthBytes = width * 4 * (hdrTexture ? 4 : 1);
+	checkCudaErrors(cudaMemcpy2DToArray(m_textureMemory[m_textureCount], 0, 0, data, textureWidthBytes, textureWidthBytes, height, cudaMemcpyHostToDevice));
+
+	// free cpu memory of texture
+	stbi_image_free(data);
+
+	// create texture object
+	cudaResourceDesc resDesc{};
+	resDesc.resType = cudaResourceTypeArray;
+	resDesc.res.array.array = m_textureMemory[m_textureCount];
+
+	cudaTextureDesc texDesc{};
+	texDesc.addressMode[0] = cudaAddressModeWrap;
+	texDesc.addressMode[1] = cudaAddressModeClamp;
+	texDesc.filterMode = cudaFilterModeLinear;
+	texDesc.readMode = hdrTexture ? cudaReadModeElementType : cudaReadModeNormalizedFloat;
+	texDesc.normalizedCoords = 1;
+
+	checkCudaErrors(cudaCreateTextureObject(&m_textures[m_textureCount], &resDesc, &texDesc, nullptr));
+
+	checkCudaErrors(cudaMemcpy(m_gpuTextures, m_textures, MAX_TEXTURE_COUNT * sizeof(cudaTextureObject_t), cudaMemcpyKind::cudaMemcpyHostToDevice));
+	checkCudaErrors(cudaDeviceSynchronize());
+
+	++m_textureCount;
+
+	return m_textureCount;
+}
+
+void Pathtracer::setSkyboxTextureHandle(uint32_t handle)
+{
+	m_skyboxTextureHandle = handle;
 }

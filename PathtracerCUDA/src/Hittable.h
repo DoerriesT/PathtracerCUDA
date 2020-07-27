@@ -28,13 +28,13 @@ private:
 	HittableType m_type;
 
 	// intersection functions
-	__host__ __device__ bool hitSphere(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
-	__host__ __device__ bool hitCylinder(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
-	__host__ __device__ bool hitDisk(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
-	__host__ __device__ bool hitCone(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
-	__host__ __device__ bool hitParaboloid(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
-	__host__ __device__ bool hitQuad(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
-	__host__ __device__ bool hitBox(const Ray &r, float tMin, float tMax, float &t, vec3 &normal) const;
+	__host__ __device__ bool hitSphere(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const;
+	__host__ __device__ bool hitCylinder(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const;
+	__host__ __device__ bool hitDisk(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const;
+	__host__ __device__ bool hitCone(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const;
+	__host__ __device__ bool hitParaboloid(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const;
+	__host__ __device__ bool hitQuad(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const;
+	__host__ __device__ bool hitBox(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const;
 };
 
 

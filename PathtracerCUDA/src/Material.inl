@@ -2,6 +2,7 @@
 #include "Material.h"
 #include "HitRecord.h"
 #include "brdf.h"
+#include <curand_kernel.h>
 
 
 
@@ -22,17 +23,19 @@ __host__ __device__ inline  float ffmin(float a, float b)
 }
 
 
-__host__ __device__ inline Material2::Material2(const vec3 &baseColor, const vec3 &emissive, float roughness, float metalness)
+__host__ __device__ inline Material2::Material2(const vec3 &baseColor, const vec3 &emissive, float roughness, float metalness, uint32_t textureIndex)
 	:m_baseColor(baseColor),
 	m_emissive(emissive),
 	m_roughness(roughness < 0.04f ? 0.04f : roughness),
-	m_metalness(metalness)
+	m_metalness(metalness),
+	m_textureIndex(textureIndex)
 {
 
 }
 
-__device__ vec3 inline Material2::sample(const Ray &rIn, const HitRecord &rec, curandState &randState, Ray &scattered, float &pdf) const
+__device__ vec3 inline Material2::sample(const Ray &rIn, const HitRecord &rec, curandState &randState, Ray &scattered, float &pdf, cudaTextureObject_t *textures) const
 {
+#if __CUDA_ARCH__ 
 	const vec3 N = normalize(rec.m_normal);
 	const vec3 V = normalize(rIn.m_dir);
 	vec3 L = cosineSampleHemisphere(curand_uniform(&randState), curand_uniform(&randState), pdf);
@@ -49,12 +52,25 @@ __device__ vec3 inline Material2::sample(const Ray &rIn, const HitRecord &rec, c
 	float a = m_roughness * m_roughness;
 	float a2 = a * a;
 
-	vec3 F0 = lerp(vec3(0.04f), m_baseColor, m_metalness);
+	vec3 baseColor = m_baseColor;
+	if (m_textureIndex != 0)
+	{
+		float4 tap = tex2D<float4>(textures[m_textureIndex - 1], rec.m_texCoordU, rec.m_texCoordV);
+		baseColor = vec3(tap.x, tap.y, tap.z);
+		baseColor.x = pow(baseColor.x, 2.2f);
+		baseColor.y = pow(baseColor.y, 2.2f);
+		baseColor.z = pow(baseColor.z, 2.2f);
+	}
+
+	vec3 F0 = lerp(vec3(0.04f), baseColor, baseColor);
 	vec3 kS = Specular_GGX(F0, NdotV, NdotL, NdotH, VdotH, a2);
-	vec3 kD = Diffuse_Lambert(m_baseColor);
+	vec3 kD = Diffuse_Lambert(baseColor);
 	//vec3 kD = (28.0f / (23.0f * PI)) * m_baseColor * (1.0f - F0) * (1.0f - pow5(1.0f - 0.5f * NdotL)) * (1.0f - (1.0f - pow5(NdotV)));
 
 	return kD * (1.0f - m_metalness);// +kS;
+#else
+	return vec3();
+#endif // __CUDA_ARCH__
 }
 
 __device__ inline vec3 Material2::getEmitted(const Ray &rIn, const HitRecord &rec) const

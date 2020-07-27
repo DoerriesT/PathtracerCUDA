@@ -50,8 +50,7 @@ __device__ bool hitBVH(uint32_t hittableCount, Hittable *world, uint32_t bvhNode
 			{
 				for (uint32_t i = 0; i < primitiveCount; ++i)
 				{
-					Hittable &elem = world[node.m_offset + i];
-					if (elem.hit(r, t_min, t_max, rec))
+					if (world[node.m_offset + i].hit(r, t_min, t_max, rec))
 					{
 						t_max = rec.m_t;
 						elemIdx = node.m_offset + i;
@@ -90,7 +89,7 @@ __device__ bool hitBVH(uint32_t hittableCount, Hittable *world, uint32_t bvhNode
 	return elemIdx != UINT32_MAX;
 }
 
-__device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, uint32_t bvhNodesCount, BVHNode *bvhNodes, curandState &randState, cudaTextureObject_t skyboxTexture)
+__device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, uint32_t bvhNodesCount, BVHNode *bvhNodes, curandState &randState, uint32_t skyboxTextureHandle, cudaTextureObject_t *textures)
 {
 	vec3 beta = vec3(1.0f);
 	vec3 L = vec3(0.0f);
@@ -106,12 +105,15 @@ __device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, 
 			vec3 unitDir = normalize(ray.m_dir);
 			float t = unitDir.y * 0.5f + 0.5f;
 			vec3 c = (1.0f - t) * vec3(1.0f, 1.0f, 1.0f) + t * vec3(0.5f, 0.7f, 1.0f);
-			float theta = acos(unitDir.y);
-			float phi = atan2(unitDir.z, unitDir.x);
-			float v = theta / PI;
-			float u = phi / (2.0f * PI);
-			float4 sky = tex2D<float4>(skyboxTexture, u, v);
-			c = vec3(sky.x, sky.y, sky.z);
+			if (skyboxTextureHandle != 0)
+			{
+				float theta = acos(unitDir.y);
+				float phi = atan2(unitDir.z, unitDir.x);
+				float v = theta / PI;
+				float u = phi / (2.0f * PI);
+				float4 sky = tex2D<float4>(textures[skyboxTextureHandle - 1], u, v);
+				c = vec3(sky.x, sky.y, sky.z);
+			}
 			//c = 0.0f;
 			L += beta * c;
 			break;
@@ -125,7 +127,7 @@ __device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, 
 			// scatter
 			Ray scattered;
 			float pdf = 0.0f;
-			vec3 attenuation = rec.m_material->sample(ray, rec, randState, scattered, pdf);
+			vec3 attenuation = rec.m_material->sample(ray, rec, randState, scattered, pdf, textures);
 			if (attenuation == vec3(0.0f) || pdf == 0.0f)
 			{
 				break;
@@ -174,7 +176,8 @@ __global__ void traceKernel(
 	BVHNode *bvhNodes,
 	curandState *randState,
 	Camera camera,
-	cudaTextureObject_t skyboxTexture)
+	uint32_t skyboxTextureHandle,
+	cudaTextureObject_t *textures)
 {
 	int threadIDx = threadIdx.x + blockIdx.x * blockDim.x;
 	int threadIDy = threadIdx.y + blockIdx.y * blockDim.y;
@@ -194,7 +197,7 @@ __global__ void traceKernel(
 	float u = (threadIDx + curand_uniform(&localRandState)) / float(width);
 	float v = (threadIDy + curand_uniform(&localRandState)) / float(height);
 	Ray r = camera.getRay(u, v, localRandState);
-	vec3 color = getColor(r, hittableCount, world, bvhNodesCount, bvhNodes, localRandState, skyboxTexture);
+	vec3 color = getColor(r, hittableCount, world, bvhNodesCount, bvhNodes, localRandState, skyboxTextureHandle, textures);
 
 	color = ignoreHistory ? color : color + inputColor;
 
