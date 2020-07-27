@@ -32,4 +32,6 @@ private:
 	cudaEvent_t m_stopEvent = nullptr;
 	BVHNode *m_gpuBVHNodes = nullptr;
 	Hittable *m_gpuHittables = nullptr;
+	cudaTextureObject_t m_skyboxTexture = 0;
+	cudaArray *m_skyboxTextureMemory = nullptr;
 };

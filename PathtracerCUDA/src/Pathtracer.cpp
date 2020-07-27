@@ -9,6 +9,7 @@
 #include <curand_kernel.h>
 #include "kernels/initRandState.h"
 #include "kernels/trace.h"
+#include "stb_image.h"
 
 #define checkCudaErrors(val) check_cuda( (val), #val, __FILE__, __LINE__ )
 static void check_cuda(cudaError_t result, char const *const func, const char *const file, int const line)
@@ -70,6 +71,41 @@ Pathtracer::Pathtracer(uint32_t width, uint32_t height)
 
 		checkCudaErrors(cudaEventCreate(&m_startEvent));
 		checkCudaErrors(cudaEventCreate(&m_stopEvent));
+
+		// create skybox texture
+		{
+			// load texture from file
+			int skyboxWidth;
+			int skyboxHeight;
+			int skyboxChannelCount;
+			float *data = stbi_loadf("skybox.hdr", &skyboxWidth, &skyboxHeight, &skyboxChannelCount, 4);
+			assert(data);
+
+			// allocate device memory for texture
+			cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc(32, 32, 32, 32, cudaChannelFormatKindFloat);
+			checkCudaErrors(cudaMallocArray(&m_skyboxTextureMemory, &channelDesc, skyboxWidth, skyboxHeight));
+
+			// copy texture to device memory
+			size_t textureWidthBytes = skyboxWidth * 4 * 4; // 4 channels and 4 byte per channel
+			checkCudaErrors(cudaMemcpy2DToArray(m_skyboxTextureMemory, 0, 0, data, textureWidthBytes, textureWidthBytes, skyboxHeight, cudaMemcpyHostToDevice));
+
+			// free cpu memory of texture
+			stbi_image_free(data);
+
+			// create texture object
+			cudaResourceDesc resDesc{};
+			resDesc.resType = cudaResourceTypeArray;
+			resDesc.res.array.array = m_skyboxTextureMemory;
+
+			cudaTextureDesc texDesc{};
+			texDesc.addressMode[0] = cudaAddressModeWrap;
+			texDesc.addressMode[1] = cudaAddressModeClamp;
+			texDesc.filterMode = cudaFilterModeLinear;
+			texDesc.readMode = cudaReadModeElementType;
+			texDesc.normalizedCoords = 1;
+
+			checkCudaErrors(cudaCreateTextureObject(&m_skyboxTexture, &resDesc, &texDesc, nullptr));
+		}
 	}
 }
 
@@ -95,6 +131,10 @@ Pathtracer::~Pathtracer()
 	// destroy events
 	checkCudaErrors(cudaEventDestroy(m_startEvent));
 	checkCudaErrors(cudaEventDestroy(m_stopEvent));
+
+	// destroy skybox texture
+	checkCudaErrors(cudaDestroyTextureObject(m_skyboxTexture));
+	checkCudaErrors(cudaFreeArray(m_skyboxTextureMemory));
 
 	// delete pixel buffer object
 	glDeleteBuffers(1, &m_pixelBufferGL);
@@ -148,7 +188,7 @@ void Pathtracer::render(const Camera &camera, bool ignoreHistory)
 	{
 		dim3 threads(8, 8, 1);
 		dim3 blocks((m_width + 7) / 8, (m_height + 7) / 8, 1);
-		traceKernel << <blocks, threads >> > (deviceMem, m_gpuAccumBuffer, ignoreHistory, m_accumulatedFrames, m_width, m_height, m_hittableCount, m_gpuHittables, m_nodeCount, m_gpuBVHNodes, m_gpuRandState, camera);
+		traceKernel << <blocks, threads >> > (deviceMem, m_gpuAccumBuffer, ignoreHistory, m_accumulatedFrames, m_width, m_height, m_hittableCount, m_gpuHittables, m_nodeCount, m_gpuBVHNodes, m_gpuRandState, camera, m_skyboxTexture);
 	}
 
 	// end tracing

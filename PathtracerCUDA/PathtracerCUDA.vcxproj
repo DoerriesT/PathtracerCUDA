@@ -91,6 +91,7 @@
     <ClCompile Include="src\Hittable.cpp" />
     <ClCompile Include="src\main.cpp" />
     <CudaCompile Include="src\Pathtracer.cpp" />
+    <ClCompile Include="src\stb_image.cpp" />
     <ClCompile Include="src\UserInput.cpp" />
     <ClCompile Include="src\Utility.cpp" />
     <ClCompile Include="src\Window.cpp" />
@@ -110,6 +111,7 @@
     <ClInclude Include="src\Material.h" />
     <ClInclude Include="src\Pathtracer.h" />
     <ClInclude Include="src\Ray.h" />
+    <ClInclude Include="src\stb_image.h" />
     <ClInclude Include="src\UserInput.h" />
     <ClInclude Include="src\Utility.h" />
     <ClInclude Include="src\vec3.h" />

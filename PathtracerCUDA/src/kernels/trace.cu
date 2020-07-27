@@ -90,7 +90,7 @@ __device__ bool hitBVH(uint32_t hittableCount, Hittable *world, uint32_t bvhNode
 	return elemIdx != UINT32_MAX;
 }
 
-__device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, uint32_t bvhNodesCount, BVHNode *bvhNodes, curandState &randState)
+__device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, uint32_t bvhNodesCount, BVHNode *bvhNodes, curandState &randState, cudaTextureObject_t skyboxTexture)
 {
 	vec3 beta = vec3(1.0f);
 	vec3 L = vec3(0.0f);
@@ -106,6 +106,12 @@ __device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, 
 			vec3 unitDir = normalize(ray.m_dir);
 			float t = unitDir.y * 0.5f + 0.5f;
 			vec3 c = (1.0f - t) * vec3(1.0f, 1.0f, 1.0f) + t * vec3(0.5f, 0.7f, 1.0f);
+			float theta = acos(unitDir.y);
+			float phi = atan2(unitDir.z, unitDir.x);
+			float v = theta / PI;
+			float u = phi / (2.0f * PI);
+			float4 sky = tex2D<float4>(skyboxTexture, u, v);
+			c = vec3(sky.x, sky.y, sky.z);
 			//c = 0.0f;
 			L += beta * c;
 			break;
@@ -155,7 +161,20 @@ __device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, 
 	return L;
 }
 
-__global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool ignoreHistory, uint32_t frame, uint32_t width, uint32_t height, uint32_t hittableCount, Hittable *world, uint32_t bvhNodesCount, BVHNode *bvhNodes, curandState *randState, Camera camera)
+__global__ void traceKernel(
+	uchar4 *resultBuffer,
+	float4 *accumBuffer,
+	bool ignoreHistory,
+	uint32_t frame,
+	uint32_t width,
+	uint32_t height,
+	uint32_t hittableCount,
+	Hittable *world,
+	uint32_t bvhNodesCount,
+	BVHNode *bvhNodes,
+	curandState *randState,
+	Camera camera,
+	cudaTextureObject_t skyboxTexture)
 {
 	int threadIDx = threadIdx.x + blockIdx.x * blockDim.x;
 	int threadIDy = threadIdx.y + blockIdx.y * blockDim.y;
@@ -175,15 +194,19 @@ __global__ void traceKernel(uchar4 *resultBuffer, float4 *accumBuffer, bool igno
 	float u = (threadIDx + curand_uniform(&localRandState)) / float(width);
 	float v = (threadIDy + curand_uniform(&localRandState)) / float(height);
 	Ray r = camera.getRay(u, v, localRandState);
-	vec3 color = getColor(r, hittableCount, world, bvhNodesCount, bvhNodes, localRandState);
+	vec3 color = getColor(r, hittableCount, world, bvhNodesCount, bvhNodes, localRandState, skyboxTexture);
 
 	color = ignoreHistory ? color : color + inputColor;
 
 	vec3 resultColor = color / float(frame + 1.0f);
-	resultColor = saturate(resultColor);
-	resultColor.r = sqrt(resultColor.r);
-	resultColor.g = sqrt(resultColor.g);
-	resultColor.b = sqrt(resultColor.b);
+
+	// reinhard tonemapping
+	resultColor = resultColor / (resultColor + 1.0f);// saturate(resultColor);
+
+	// gamma correction
+	resultColor.r = pow(resultColor.r, 1.0f / 2.2f);
+	resultColor.g = pow(resultColor.g, 1.0f / 2.2f);
+	resultColor.b = pow(resultColor.b, 1.0f / 2.2f);
 
 	accumBuffer[dstIdx] = { color.r, color.g, color.b, 1.0f };
 	resultBuffer[dstIdx] = { (unsigned char)(resultColor.x * 255.0f), (unsigned char)(resultColor.y * 255.0f) , (unsigned char)(resultColor.z * 255.0f), 255 };
