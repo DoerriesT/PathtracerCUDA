@@ -24,12 +24,13 @@ __host__ __device__ inline  float ffmin(float a, float b)
 }
 
 
-__host__ __device__ inline Material2::Material2(const vec3 &baseColor, const vec3 &emissive, float roughness, float metalness, uint32_t textureIndex)
+__host__ __device__ inline Material2::Material2(MaterialType type, const vec3 &baseColor, const vec3 &emissive, float roughness, float metalness, uint32_t textureIndex)
 	:m_baseColor(baseColor),
 	m_emissive(emissive),
 	m_roughness(roughness),
 	m_metalness(metalness),
-	m_textureIndex(textureIndex)
+	m_textureIndex(textureIndex),
+	m_materialType(type)
 {
 
 }
@@ -41,40 +42,6 @@ __device__ vec3 inline Material2::sample(const Ray &rIn, const HitRecord &rec, c
 
 	// we do lighting in tangent space
 	const vec3 V = worldToTangent(Nws, Vws);
-
-	float a = m_roughness * m_roughness;
-	float a2 = a * a;
-
-	float rnd0 = curand_uniform(&randState);
-	float rnd1 = curand_uniform(&randState);
-
-	vec3 L;
-	if (curand_uniform(&randState) < 0.5f)
-	{
-		L = cosineSampleHemisphere(rnd0, rnd1);
-	}
-	else
-	{
-		L = reflect(-V, importanceSampleGGX(rnd0, rnd1, a2));
-	}
-
-	if (L.z < 0.0f)
-	{
-		pdf = 1.0f;
-		return 0.0f;
-	}
-
-	scattered = Ray(rec.m_p, tangentToWorld(Nws, L));
-
-	const float NdotV = abs(V.z) + 1e-5f;
-	const vec3 H = normalize(V + L);
-	const float VdotH = clamp(dot(V, H));
-	const float NdotH = clamp(H.z);
-	const float NdotL = clamp(L.z);
-
-	const float cosinePdf = cosineSampleHemispherePdf(L);
-	const float ggxPdf = importanceSampleGGXPdf(H, V, a2);
-	pdf = (ggxPdf + cosinePdf) * 0.5f;
 
 	vec3 baseColor = m_baseColor;
 #if __CUDA_ARCH__ 
@@ -88,18 +55,107 @@ __device__ vec3 inline Material2::sample(const Ray &rIn, const HitRecord &rec, c
 	}
 #endif // __CUDA_ARCH__
 
-	vec3 F0 = lerp(vec3(0.04f), baseColor, m_metalness);
-	vec3 kS = Specular_GGX(F0, NdotV, NdotL, NdotH, VdotH, a2);
-	//vec3 kD = Diffuse_Disney(NdotV, NdotL, VdotH, m_roughness * m_roughness, baseColor);
-	vec3 kD = Diffuse_Lambert(baseColor);
-	//vec3 kD = (28.0f / (23.0f * PI)) * baseColor * (1.0f - F0) * (1.0f - pow5(1.0f - 0.5f * NdotL)) * (1.0f - (1.0f - pow5(NdotV)));
+	vec3 scatteredDir;
+	vec3 attenuation = 0.0f;
 
-	return kD * (1.0f - m_metalness) + kS;
+	float rnd0 = curand_uniform(&randState);
+	float rnd1 = curand_uniform(&randState);
+
+	switch (m_materialType)
+	{
+	case MaterialType::LAMBERT:
+		attenuation = sampleLambert(baseColor, V, rnd0, rnd1, scatteredDir, pdf); break;
+	case MaterialType::GGX:
+		attenuation = sampleGGX(baseColor, V, rnd0, rnd1, scatteredDir, pdf); break;
+	case MaterialType::LAMBERT_GGX:
+		attenuation = sampleLambertGGX(baseColor, V, rnd0, rnd1, scatteredDir, pdf); break;
+	default:
+		break;
+	}
+
+	scattered = Ray(rec.m_p, tangentToWorld(Nws, scatteredDir));
+
+	return attenuation;
 }
 
 __device__ inline vec3 Material2::getEmitted(const Ray &rIn, const HitRecord &rec) const
 {
 	return m_emissive;
+}
+
+inline __device__ vec3 Material2::sampleLambert(const vec3 &baseColor, const vec3 &V, float rnd0, float rnd1, vec3 &scatteredDir, float &pdf) const
+{
+	scatteredDir = cosineSampleHemisphere(rnd0, rnd1);
+	pdf = cosineSampleHemispherePdf(scatteredDir);
+	return Diffuse_Lambert(baseColor);
+}
+
+inline __device__ vec3 Material2::sampleGGX(const vec3 &baseColor, const vec3 &V, float rnd0, float rnd1, vec3 &scatteredDir, float &pdf) const
+{
+	const float a = m_roughness * m_roughness;
+	const float a2 = a * a;
+
+	scatteredDir = reflect(-V, importanceSampleGGX(rnd0, rnd1, a2));
+
+	if (scatteredDir.z < 0.0f)
+	{
+		pdf = 1.0f;
+		return 0.0f;
+	}
+
+	const float NdotV = abs(V.z) + 1e-5f;
+	const vec3 H = normalize(V + scatteredDir);
+	const float VdotH = clamp(dot(V, H));
+	const float NdotH = clamp(H.z);
+	const float NdotL = clamp(scatteredDir.z);
+
+	pdf = importanceSampleGGXPdf(H, V, a2);
+
+	const vec3 F0 = lerp(vec3(0.04f), baseColor, m_metalness);
+
+	return Specular_GGX(F0, NdotV, NdotL, NdotH, VdotH, a2);
+}
+
+inline __device__ vec3 Material2::sampleLambertGGX(const vec3 &baseColor, const vec3 &V, float rnd0, float rnd1, vec3 &scatteredDir, float &pdf) const
+{
+	const float a = m_roughness * m_roughness;
+	const float a2 = a * a;
+
+	// sample either diffuse or specular with equal chance and then remap rnd0 to [0..1]
+	if (rnd0 < 0.5f)
+	{
+		rnd0 = 2.0f * rnd0;
+		scatteredDir = cosineSampleHemisphere(rnd0, rnd1);
+	}
+	else
+	{
+		rnd0 = 2.0f * (rnd0 - 0.5f);
+		scatteredDir = reflect(-V, importanceSampleGGX(rnd0, rnd1, a2));
+	}
+
+	if (scatteredDir.z < 0.0f)
+	{
+		pdf = 1.0f;
+		return 0.0f;
+	}
+
+	const float NdotV = abs(V.z) + 1e-5f;
+	const vec3 H = normalize(V + scatteredDir);
+	const float VdotH = clamp(dot(V, H));
+	const float NdotH = clamp(H.z);
+	const float NdotL = clamp(scatteredDir.z);
+
+	const float cosinePdf = cosineSampleHemispherePdf(scatteredDir);
+	const float ggxPdf = importanceSampleGGXPdf(H, V, a2);
+	pdf = (ggxPdf + cosinePdf) * 0.5f;
+
+	const vec3 F0 = lerp(vec3(0.04f), baseColor, m_metalness);
+	const vec3 kS = Specular_GGX(F0, NdotV, NdotL, NdotH, VdotH, a2);
+	//const vec3 kD = Diffuse_Disney(NdotV, NdotL, VdotH, m_roughness * m_roughness, baseColor);
+	const vec3 kD = Diffuse_Lambert(baseColor);
+	//const vec3 kD = (28.0f / (23.0f * PI)) * baseColor * (1.0f - F0) * (1.0f - pow5(1.0f - 0.5f * NdotL)) * (1.0f - (1.0f - pow5(NdotV)));
+
+	return kD * (1.0f - m_metalness) + kS;
 }
 
 __host__ __device__ inline MaterialOld::MaterialOld(Type type, const vec3 &albedo, float fuzz, float ior)
