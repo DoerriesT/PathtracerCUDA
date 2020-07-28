@@ -260,23 +260,23 @@ __device__ inline vec3 random_in_hemisphere(const vec3 &normal, curandState &ran
 	return dot(in_unit_sphere, normal) > 0.0 ? in_unit_sphere : -in_unit_sphere;
 }
 
-__host__ __device__ inline vec3 tangentToWorld(const vec3 &N, const vec3 &v)
-{
-	vec3 up = abs(N.z) < 0.999f ? vec3(0.0f, 0.0f, 1.0f) : vec3(1.0f, 0.0f, 0.0f);
-	vec3 tangent = normalize(cross(up, N));
-	vec3 bitangent = cross(N, tangent);
-
-	return normalize(tangent * v.x + bitangent * v.y + N * v.z);
-}
-
-__host__ __device__ inline vec3 cosineSampleHemisphere(float u0, float u1, float &pdf)
-{
-	const float phi = 2.0f * PI * u0;
-	const float cosTheta = sqrt(u1);
-	const float sinTheta = sqrt(1.0f - u1);
-	pdf = cosTheta * (1.0f / PI);
-	return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
-}
+//__host__ __device__ inline vec3 tangentToWorld(const vec3 &N, const vec3 &v)
+//{
+//	vec3 up = abs(N.z) < 0.999f ? vec3(0.0f, 0.0f, 1.0f) : vec3(1.0f, 0.0f, 0.0f);
+//	vec3 tangent = normalize(cross(up, N));
+//	vec3 bitangent = cross(N, tangent);
+//
+//	return normalize(tangent * v.x + bitangent * v.y + N * v.z);
+//}
+//
+//__host__ __device__ inline vec3 cosineSampleHemisphere(float u0, float u1, float &pdf)
+//{
+//	const float phi = 2.0f * PI * u0;
+//	const float cosTheta = sqrt(u1);
+//	const float sinTheta = sqrt(1.0f - u1);
+//	pdf = cosTheta * (1.0f / PI);
+//	return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+//}
 
 __host__ __device__ inline float clamp(float x, float a, float b)
 {

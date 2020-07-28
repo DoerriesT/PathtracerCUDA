@@ -74,7 +74,7 @@ int main()
 		//	hittablesCpu.push_back(CpuHittable(HittableType::CUBE, vec3(0.5f, 0.25f, 0.5f), vec3(0.0f, radians(-30.0f), 0.0f), vec3(0.25f), Material2(vec3(1.0f, 1.0f, 1.0f))));
 		//}
 
-		hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(0.0f, 0.0f, 0.0f), vec3(), vec3(20.0f), Material2(vec3(0.5f))));
+		hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(0.0f, 0.0f, 0.0f), vec3(), vec3(20.0f), Material2(vec3(1.0f), vec3(0.0f), 1.0f, 0.0f)));
 		//hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, vec3(0.0f, -1000.0f, 0.0f), vec3(), vec3(1000.0f), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
 		//hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(0.0f, 0.0f, 0.0f), vec3(), vec3(100.0f, 1.0f, 100.0f), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
 
@@ -88,7 +88,8 @@ int main()
 				if (length(center - vec3(4.0f, 0.2f, 0.0f)) > 0.9f)
 				{
 					auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
-					hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, center, vec3(), vec3(0.2f), Material2(albedo)));
+					float metalness = d(e) > 0.5f ? 1.0f : 0.0f;
+					hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, center, vec3(), vec3(0.2f), Material2(albedo, 0.0f, 0.1f, metalness)));
 					//if (chooseMat < 0.8f)
 					//{
 					//	// diffuse

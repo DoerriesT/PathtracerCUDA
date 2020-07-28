@@ -109,6 +109,7 @@
     <ClInclude Include="src\kernels\initRandState.h" />
     <ClInclude Include="src\kernels\trace.h" />
     <ClInclude Include="src\Material.h" />
+    <ClInclude Include="src\MonteCarlo.h" />
     <ClInclude Include="src\Pathtracer.h" />
     <ClInclude Include="src\Ray.h" />
     <ClInclude Include="src\stb_image.h" />

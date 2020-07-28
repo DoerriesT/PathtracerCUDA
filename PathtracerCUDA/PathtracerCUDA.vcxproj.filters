@@ -92,6 +92,9 @@
     <ClInclude Include="src\stb_image.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="src\MonteCarlo.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="src\kernels\initRandState.cu">
