@@ -184,7 +184,8 @@ __host__ __device__ inline bool Hittable::hitCylinder(const Ray &r, float tMin, 
 	vec3 p = r.at(t);
 	normal = vec3(p.x, 0.0f, p.z);
 
-	u = acos(p.x) / (2.0f * PI);
+	float phi = atan2(normal.z, normal.x);
+	u = 1.0f - phi / (2.0f * PI);
 	v = 1.0f - (p.y * 0.5f + 0.5f);
 
 	return true;
