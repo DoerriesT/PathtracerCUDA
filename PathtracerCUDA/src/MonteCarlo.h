@@ -59,9 +59,54 @@ __host__ __device__ inline vec3 importanceSampleGGX(float u0, float u1, float a2
 	return H;
 }
 
+// based on information from "Physically Based Shading at Disney" by Brent Burley
 __host__ __device__ inline float importanceSampleGGXPdf(const vec3 &H, const vec3 &V, float a2)
 {
 	float NdotH = H.z;//clamp(dot(N, Hw));
 	float VdotH = clamp(dot(V, H));
 	return (D_GGX(NdotH, a2) * NdotH + 1e-5f) / (4.0f * VdotH + 1e-5f);
+}
+
+// http://jcgt.org/published/0007/04/01/paper.pdf "Sampling the GGX Distribution of Visible Normals" by Eric Heitz
+__host__ __device__ inline vec3 importanceSampleGGXVNDF(const vec3 &V, float u0, float u1, float a)
+{
+	const float alpha_x = a;
+	const float alpha_y = a;
+
+	// transform the view direction to the hemisphere configuration
+	vec3 Vh = normalize(vec3(alpha_x * V.x, alpha_y * V.y, V.z));
+
+	// orthonormal basis (with special case if cross product is zero)
+	float lensq = Vh.x * Vh.x + Vh.y * Vh.y;
+	vec3 T1 = lensq > 0.0f ? vec3(-Vh.y, Vh.x, 0.0f) * (1.0f / sqrt(lensq)) : vec3(1.0f, 0.0f, 0.0f);
+	vec3 T2 = cross(Vh, T1);
+	
+	// parameterization of the projected area
+	float r = sqrt(u0);
+	float phi = 2.0f * PI * u1;
+	float t1 = r * cos(phi);
+	float t2 = r * sin(phi);
+	float s = 0.5f * (1.0f + Vh.z);
+	t2 = (1.0f - s) * sqrt(1.0f - t1 * t1) + s * t2;
+	
+	// reprojection onto hemisphere
+	vec3 Nh = t1 * T1 + t2 * T2 + sqrt(clamp(1.0f - t1 * t1 - t2 * t2)) * Vh;
+	
+	// transforming the normal back to the ellipsoid configuration
+	vec3 Ne = normalize(vec3(alpha_x * Nh.x, alpha_y * Nh.y, clamp(Nh.z)));
+	
+	return Ne;
+}
+
+// http://jcgt.org/published/0007/04/01/paper.pdf "Sampling the GGX Distribution of Visible Normals" by Eric Heitz
+__host__ __device__ inline float importanceSampleGGXVNDFPdf(const vec3 &H, const vec3 &V, float a)
+{
+	float a2 = a * a;
+	float NdotH = H.z;//clamp(dot(N, Hw));
+	float VdotH = clamp(dot(V, H));
+	
+	float G1 = (2.0f * V.z) / (V.z + sqrt(a2 + (1.0f - a2) * (V.z * V.z)));
+	float Dv = (G1 * VdotH * D_GGX(NdotH, a2)) / V.z;
+
+	return Dv / (4.0f * VdotH);
 }

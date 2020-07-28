@@ -95,7 +95,7 @@ inline __device__ vec3 Material2::sampleGGX(const vec3 &baseColor, const vec3 &V
 	const float a = m_roughness * m_roughness;
 	const float a2 = a * a;
 
-	scatteredDir = reflect(-V, importanceSampleGGX(rnd0, rnd1, a2));
+	scatteredDir = reflect(-V, importanceSampleGGXVNDF(V, rnd0, rnd1, a));
 
 	if (scatteredDir.z < 0.0f)
 	{
@@ -109,7 +109,7 @@ inline __device__ vec3 Material2::sampleGGX(const vec3 &baseColor, const vec3 &V
 	const float NdotH = clamp(H.z);
 	const float NdotL = clamp(scatteredDir.z);
 
-	pdf = importanceSampleGGXPdf(H, V, a2);
+	pdf = importanceSampleGGXVNDFPdf(H, V, a);
 
 	const vec3 F0 = lerp(vec3(0.04f), baseColor, m_metalness);
 
@@ -130,7 +130,7 @@ inline __device__ vec3 Material2::sampleLambertGGX(const vec3 &baseColor, const 
 	else
 	{
 		rnd0 = 2.0f * (rnd0 - 0.5f);
-		scatteredDir = reflect(-V, importanceSampleGGX(rnd0, rnd1, a2));
+		scatteredDir = reflect(-V, importanceSampleGGXVNDF(V, rnd0, rnd1, a));
 	}
 
 	if (scatteredDir.z < 0.0f)
@@ -146,7 +146,7 @@ inline __device__ vec3 Material2::sampleLambertGGX(const vec3 &baseColor, const 
 	const float NdotL = clamp(scatteredDir.z);
 
 	const float cosinePdf = cosineSampleHemispherePdf(scatteredDir);
-	const float ggxPdf = importanceSampleGGXPdf(H, V, a2);
+	const float ggxPdf = importanceSampleGGXVNDFPdf(H, V, a);
 	pdf = (ggxPdf + cosinePdf) * 0.5f;
 
 	const vec3 F0 = lerp(vec3(0.04f), baseColor, m_metalness);
