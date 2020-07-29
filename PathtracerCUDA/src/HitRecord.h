@@ -8,7 +8,6 @@ struct HitRecord
 {
 	vec3 m_p;
 	vec3 m_normal;
-	vec3 m_emitted;
 	const Material2 *m_material;
 	float m_t;
 	float m_texCoordU;

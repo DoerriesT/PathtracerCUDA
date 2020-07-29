@@ -37,11 +37,8 @@ __host__ __device__ inline Material2::Material2(MaterialType type, const vec3 &b
 
 __device__ vec3 inline Material2::sample(const Ray &rIn, const HitRecord &rec, curandState &randState, Ray &scattered, float &pdf, cudaTextureObject_t *textures) const
 {
-	const vec3 Nws = normalize(rec.m_normal);
-	const vec3 Vws = -normalize(rIn.m_dir);
-
 	// we do lighting in tangent space
-	const vec3 V = worldToTangent(Nws, Vws);
+	const vec3 V = worldToTangent(rec.m_normal, -rIn.m_dir);
 
 	vec3 baseColor = m_baseColor;
 #if __CUDA_ARCH__ 
@@ -73,7 +70,7 @@ __device__ vec3 inline Material2::sample(const Ray &rIn, const HitRecord &rec, c
 		break;
 	}
 
-	scattered = Ray(rec.m_p, tangentToWorld(Nws, scatteredDir));
+	scattered = Ray(rec.m_p, normalize(tangentToWorld(rec.m_normal, scatteredDir)));
 
 	return attenuation;
 }

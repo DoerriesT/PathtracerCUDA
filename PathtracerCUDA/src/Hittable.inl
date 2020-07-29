@@ -327,15 +327,15 @@ inline __host__ __device__ bool Hittable::hitBox(const Ray &r, float tMin, float
 	vec3 absN = vec3(abs(normal.x), abs(normal.y), abs(normal.z));
 	if (absN.x > absN.y && absN.x > absN.z)
 	{
-		normal = vec3(1.0f, 0.0f, 0.0f);
+		normal = vec3(normal.x > 0.0f ? 1.0f : -1.0f, 0.0f, 0.0f);
 	}
 	else if (absN.y > absN.x && absN.y > absN.z)
 	{
-		normal = vec3(0.0f, 1.0f, 0.0f);
+		normal = vec3(0.0f, normal.y > 0.0f ? 1.0f : -1.0f, 0.0f);
 	}
 	else
 	{
-		normal = vec3(0.0f, 0.0f, 1.0f);
+		normal = vec3(0.0f, 0.0f, normal.z > 0.0f ? 1.0f : -1.0f);
 	}
 
 	return true;

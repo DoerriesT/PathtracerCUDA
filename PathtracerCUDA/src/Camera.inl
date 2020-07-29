@@ -29,7 +29,7 @@ __device__ inline Ray Camera::getRay(float s, float t, curandState &randState)
 {
 	vec3 rd = m_lensRadius * random_in_unit_disk(randState);
 	vec3 offset = m_right * rd.x + m_up * rd.y;
-	return Ray(m_origin + offset, m_lowerLeftCorner + s * m_horizontal + t * m_vertical - m_origin - offset);
+	return Ray(m_origin + offset, normalize(m_lowerLeftCorner + s * m_horizontal + t * m_vertical - m_origin - offset));
 }
 
 __host__ __device__ inline void Camera::rotate(float pitch, float yaw, float roll)

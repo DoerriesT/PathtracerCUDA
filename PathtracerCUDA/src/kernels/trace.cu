@@ -91,7 +91,7 @@ __device__ bool hitBVH(uint32_t hittableCount, Hittable *world, uint32_t bvhNode
 
 __device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, uint32_t bvhNodesCount, BVHNode *bvhNodes, curandState &randState, uint32_t skyboxTextureHandle, cudaTextureObject_t *textures)
 {
-	vec3 beta = vec3(1.0f);
+	vec3 throughput = vec3(1.0f);
 	vec3 L = vec3(0.0f);
 	Ray ray = r;
 	for (int iteration = 0; iteration < 5; ++iteration)
@@ -102,27 +102,25 @@ __device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, 
 		// add sky light and exit loop
 		if (!foundIntersection)
 		{
-			vec3 unitDir = normalize(ray.m_dir);
-			float t = unitDir.y * 0.5f + 0.5f;
-			vec3 c = (1.0f - t) * vec3(1.0f, 1.0f, 1.0f) + t * vec3(0.5f, 0.7f, 1.0f);
+			vec3 c = 0.0f;// lerp(vec3(1.0f), vec3(0.5f, 0.7f, 1.0f), ray.m_dir.y * 0.5f + 0.5f);
 			if (skyboxTextureHandle != 0)
 			{
-				float theta = acos(unitDir.y);
-				float phi = atan2(unitDir.z, unitDir.x);
+				float theta = acos(ray.m_dir.y);
+				float phi = atan2(ray.m_dir.z, ray.m_dir.x);
 				float v = theta / PI;
 				float u = phi / (2.0f * PI);
 				float4 sky = tex2D<float4>(textures[skyboxTextureHandle - 1], u, v);
 				c = vec3(sky.x, sky.y, sky.z);
 			}
 			//c = 0.0f;
-			L += beta * c;
+			L += throughput * c;
 			break;
 		}
 		// process intersection
 		else
 		{
 			// add emitted light
-			L += beta * rec.m_material->getEmitted(ray, rec);
+			L += throughput * rec.m_material->getEmitted(ray, rec);
 
 			// scatter
 			Ray scattered;
@@ -132,7 +130,7 @@ __device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, 
 			{
 				break;
 			}
-			beta *= attenuation * abs(dot(normalize(scattered.m_dir), normalize(rec.m_normal))) / pdf;
+			throughput *= attenuation * abs(dot(scattered.m_dir, rec.m_normal)) / pdf;
 			ray = scattered;
 		}
 
