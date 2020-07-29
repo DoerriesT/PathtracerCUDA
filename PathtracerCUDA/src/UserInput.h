@@ -1,6 +1,5 @@
 #pragma once
 #include "IInputListener.h"
-#include <glm/vec2.hpp>
 #include <vector>
 #include <bitset>
 
@@ -13,10 +12,10 @@ public:
 	UserInput &operator= (const UserInput &) = delete;
 	UserInput &operator= (const UserInput &&) = delete;
 	void input();
-	glm::vec2 getPreviousMousePos() const;
-	glm::vec2 getCurrentMousePos() const;
-	glm::vec2 getMousePosDelta() const;
-	glm::vec2 getScrollOffset() const;
+	void getPreviousMousePos(float &x, float &y) const;
+	void getCurrentMousePos(float &x, float &y) const;
+	void getMousePosDelta(float &x, float &y) const;
+	void getScrollOffset(float &x, float &y) const;
 	bool isKeyPressed(InputKey key, bool ignoreRepeated = false) const;
 	bool isMouseButtonPressed(InputMouse mouseButton) const;
 	void addKeyListener(IKeyListener *listener);
@@ -34,10 +33,10 @@ public:
 	void onMouseScroll(double xOffset, double yOffset) override;
 
 private:
-	glm::vec2 m_mousePos;
-	glm::vec2 m_previousMousePos;
-	glm::vec2 m_mousePosDelta;
-	glm::vec2 m_scrollOffset;
+	float m_mousePos[2];
+	float m_previousMousePos[2];
+	float m_mousePosDelta[2];
+	float m_scrollOffse[2];
 	std::vector<IKeyListener *> m_keyListeners;
 	std::vector<ICharListener *> m_charListeners;
 	std::vector<IScrollListener *> m_scrollListeners;

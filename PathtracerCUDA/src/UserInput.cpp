@@ -7,28 +7,34 @@ UserInput::UserInput()
 
 void UserInput::input()
 {
-	m_mousePosDelta = (m_mousePos - m_previousMousePos);
-	m_previousMousePos = m_mousePos;
+	m_mousePosDelta[0] = (m_mousePos[0] - m_previousMousePos[0]);
+	m_mousePosDelta[1] = (m_mousePos[1] - m_previousMousePos[1]);
+	m_previousMousePos[0] = m_mousePos[0];
+	m_previousMousePos[1] = m_mousePos[1];
 }
 
-glm::vec2 UserInput::getPreviousMousePos() const
+void UserInput::getPreviousMousePos(float &x, float &y) const
 {
-	return m_previousMousePos;
+	x = m_previousMousePos[0];
+	y = m_previousMousePos[1];
 }
 
-glm::vec2 UserInput::getCurrentMousePos() const
+void UserInput::getCurrentMousePos(float &x, float &y) const
 {
-	return m_mousePos;
+	x = m_mousePos[0];
+	y = m_mousePos[1];
 }
 
-glm::vec2 UserInput::getMousePosDelta() const
+void UserInput::getMousePosDelta(float &x, float &y) const
 {
-	return m_mousePosDelta;
+	x = m_mousePosDelta[0];
+	y = m_mousePosDelta[1];
 }
 
-glm::vec2 UserInput::getScrollOffset() const
+void UserInput::getScrollOffset(float &x, float &y) const
 {
-	return m_scrollOffset;
+	x = m_scrollOffse[0];
+	y = m_scrollOffse[1];
 }
 
 bool UserInput::isKeyPressed(InputKey key, bool ignoreRepeated) const
@@ -144,8 +150,8 @@ void UserInput::onMouseButton(InputMouse mouseButton, InputAction action)
 
 void UserInput::onMouseMove(double x, double y)
 {
-	m_mousePos.x = static_cast<float>(x);
-	m_mousePos.y = static_cast<float>(y);
+	m_mousePos[0] = static_cast<float>(x);
+	m_mousePos[1] = static_cast<float>(y);
 }
 
 void UserInput::onMouseScroll(double xOffset, double yOffset)
@@ -155,6 +161,6 @@ void UserInput::onMouseScroll(double xOffset, double yOffset)
 		listener->onMouseScroll(xOffset, yOffset);
 	}
 
-	m_scrollOffset.x = static_cast<float>(xOffset);
-	m_scrollOffset.y = static_cast<float>(yOffset);
+	m_scrollOffse[0] = static_cast<float>(xOffset);
+	m_scrollOffse[1] = static_cast<float>(yOffset);
 }

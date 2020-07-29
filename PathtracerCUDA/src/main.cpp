@@ -5,7 +5,7 @@
 #include "Camera.h"
 #include <random>
 #include <GLFW/glfw3.h>
-#include <glm/vec3.hpp>
+#include <cassert>
 
 int main()
 {
@@ -161,9 +161,9 @@ int main()
 		{
 			bool pressed = false;
 			float mod = 5.0f;
-			glm::vec3 cameraTranslation;
+			float cameraTranslation[3] = {};
 
-			glm::vec2 mouseDelta = {};
+			float mouseDelta[2] = {};
 
 			if (input.isMouseButtonPressed(InputMouse::BUTTON_RIGHT))
 			{
@@ -172,7 +172,7 @@ int main()
 					grabbedMouse = true;
 					window.grabMouse(grabbedMouse);
 				}
-				mouseDelta = input.getMousePosDelta();
+				input.getMousePosDelta(mouseDelta[0], mouseDelta[1]);
 			}
 			else
 			{
@@ -183,9 +183,9 @@ int main()
 				}
 			}
 
-			if (mouseDelta.x * mouseDelta.x + mouseDelta.y * mouseDelta.y > 0.0f)
+			if (mouseDelta[0] * mouseDelta[0] + mouseDelta[1] * mouseDelta[1] > 0.0f)
 			{
-				camera.rotate(mouseDelta.y * 0.005f, mouseDelta.x * 0.005f, 0.0f);
+				camera.rotate(mouseDelta[1] * 0.005f, mouseDelta[0] * 0.005f, 0.0f);
 				resetAccumulation = true;
 			}
 
@@ -196,27 +196,27 @@ int main()
 			}
 			if (input.isKeyPressed(InputKey::W))
 			{
-				cameraTranslation.z = -mod * (float)timeDelta;
+				cameraTranslation[2] = -mod * (float)timeDelta;
 				pressed = true;
 			}
 			if (input.isKeyPressed(InputKey::S))
 			{
-				cameraTranslation.z = mod * (float)timeDelta;
+				cameraTranslation[2] = mod * (float)timeDelta;
 				pressed = true;
 			}
 			if (input.isKeyPressed(InputKey::A))
 			{
-				cameraTranslation.x = -mod * (float)timeDelta;
+				cameraTranslation[0] = -mod * (float)timeDelta;
 				pressed = true;
 			}
 			if (input.isKeyPressed(InputKey::D))
 			{
-				cameraTranslation.x = mod * (float)timeDelta;
+				cameraTranslation[0] = mod * (float)timeDelta;
 				pressed = true;
 			}
 			if (pressed)
 			{
-				camera.translate(cameraTranslation.x, cameraTranslation.y, cameraTranslation.z);
+				camera.translate(cameraTranslation[0], cameraTranslation[1], cameraTranslation[2]);
 				resetAccumulation = true;
 			}
 		}

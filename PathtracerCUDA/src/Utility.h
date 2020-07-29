@@ -1,7 +1,6 @@
 #pragma once
 #include <vector>
 #include <string>
-#include <glm/vec3.hpp>
 
 namespace Utility
 {
@@ -33,5 +32,4 @@ namespace Utility
 	}
 
 	float halton(size_t index, size_t base);
-	glm::vec3 colorTemperatureToColor(float kelvin);
 }
