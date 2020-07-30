@@ -10,6 +10,8 @@ struct BVHNode
 	uint32_t m_primitiveCountAxis;  // 0-7 padding; 8-15 axis; 16-31 prim count (0 -> interior node)
 };
 
+
+// binary bounding volume hierarchy
 class BVH
 {
 public:
@@ -18,7 +20,6 @@ public:
 	const std::vector<CpuHittable> &getElements() const;
 	uint32_t getDepth(uint32_t node = 0) const;
 	bool validate();
-	bool trace(const vec3 &origin, const vec3 &dir, float &t);
 
 private:
 

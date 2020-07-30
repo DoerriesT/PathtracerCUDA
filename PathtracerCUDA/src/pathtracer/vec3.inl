@@ -180,14 +180,6 @@ __host__ __device__ inline vec3 reflect(const vec3 &v, const vec3 &n)
 	return v - 2.0f * dot(v, n) * n;
 }
 
-__host__ __device__ inline vec3 refract(const vec3 &uv, const vec3 &n, float etaiOverEtat)
-{
-	auto cos_theta = dot(-uv, n);
-	vec3 rOutParallel = etaiOverEtat * (uv + cos_theta * n);
-	vec3 rOutPerp = -sqrtf(1.0f - length_squared(rOutParallel)) * n;
-	return rOutParallel + rOutPerp;
-}
-
 // https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
 __host__ __device__ inline vec3 rotateAroundVector(const vec3 &v, const vec3 &axis, float cosAngle, float sinAngle)
 {

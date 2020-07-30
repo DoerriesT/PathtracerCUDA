@@ -3,8 +3,18 @@
 #include "HitRecord.h"
 #include "AABB.h"
 
+// solve quadratic equation of the form ax^2 + bx + c = 0
 __host__ __device__ inline bool quadratic(float a, float b, float c, float &t0, float &t1)
 {
+	// roots are given by: x = -b +- sqrt(b^2 - 4ac) / 2a
+	// b^2 - 4ac is the discriminant
+	// discriminant > 0:
+	//    root1 = -b + sqrt(b^2 - 4ac) / 2a
+	//    root2 = -b - sqrt(b^2 - 4ac) / 2a
+	// discriminant = 0:
+	//    root1 = root2 = -b / 2a
+	// discriminant < 0 has complex solutions can be disregarded for our purpose
+
 	// find discriminant
 	const float discriminant = b * b - 4.0f * a * c;
 	if (discriminant < 0.0f)
@@ -17,6 +27,8 @@ __host__ __device__ inline bool quadratic(float a, float b, float c, float &t0, 
 	const float q = b < 0.0f ? -0.5f * (b - discriminantRoot) : -0.5f * (b + discriminantRoot);
 	t0 = q / a;
 	t1 = c / q;
+
+	// swap values so that t0 <= t1
 	if (t0 > t1)
 	{
 		const float tmp = t0;
@@ -63,7 +75,7 @@ __host__ __device__ inline Hittable::Hittable()
 {
 }
 
-__host__ __device__ inline Hittable::Hittable(HittableType type, const float4 *invTransformRows, const Material2 &material)
+__host__ __device__ inline Hittable::Hittable(HittableType type, const float4 *invTransformRows, const Material &material)
 	: m_invTransformRow0(invTransformRows[0]),
 	m_invTransformRow1(invTransformRows[1]),
 	m_invTransformRow2(invTransformRows[2]),
@@ -91,6 +103,8 @@ __host__ __device__ inline bool Hittable::hit(const Ray &r, float tMin, float tM
 	float v;
 	vec3 normal;
 
+	// we could use inheritance instead of using a single class and switching on an enum,
+	// but doing so gives much worse performance with CUDA
 	switch (m_type)
 	{
 	case HittableType::SPHERE:
@@ -132,15 +146,10 @@ __host__ __device__ inline bool Hittable::hit(const Ray &r, float tMin, float tM
 
 __host__ __device__ inline bool Hittable::hitSphere(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const
 {
-	vec3 oc = r.origin();
-	float a = length_squared(r.direction());
-	float b = 2.0f * dot(oc, r.direction());
-	float c = length_squared(oc) - 1.0f;
-
-	// solve the quadratic equation
+	// intersect ray with quadric
 	float t0 = 0.0f;
 	float t1 = 0.0f;
-	if (!quadratic(a, b, c, t0, t1) || t0 > tMax || t1 <= tMin)
+	if (!hitQuadric<1, 1, 1, 0, 0, 0, 0, 0, 0, -1>(r.origin(), r.direction(), t0, t1) || t0 > tMax || t1 <= tMin)
 	{
 		return false;
 	}
@@ -149,6 +158,7 @@ __host__ __device__ inline bool Hittable::hitSphere(const Ray &r, float tMin, fl
 	t = t0 > tMin ? t0 : t1;
 	normal = normalize(r.at(t));
 
+	// convert cartesian coordinates (normal) to spherical coordinates (texture coordinate)
 	float theta = acosf(normal.y);
 	float phi = atan2f(normal.z, normal.x);
 	u = 1.0f - phi / (2.0f * PI);
@@ -160,7 +170,7 @@ __host__ __device__ inline bool Hittable::hitSphere(const Ray &r, float tMin, fl
 
 __host__ __device__ inline bool Hittable::hitCylinder(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const
 {
-	// solve the quadratic equation
+	// intersect ray with quadric
 	float t0 = 0.0f;
 	float t1 = 0.0f;
 	if (!hitQuadric<1, 0, 1, 0, 0, 0, 0, 0, 0, -1>(r.origin(), r.direction(), t0, t1) || t0 > tMax || t1 <= tMin)
@@ -168,6 +178,7 @@ __host__ __device__ inline bool Hittable::hitCylinder(const Ray &r, float tMin, 
 		return false;
 	}
 
+	// cylinder is infinite, but we limit it to a maximum extent
 	const float hitPointHeight0 = r.m_dir.y * t0 + r.origin().y;
 	const float hitPointHeight1 = r.m_dir.y * t1 + r.origin().y;
 	const bool hitPointValid0 = t0 > tMin && t0 <= tMax && hitPointHeight0 >= -1.0f && hitPointHeight0 <= 1.0f;
@@ -225,7 +236,7 @@ __host__ __device__ inline bool Hittable::hitDisk(const Ray &r, float tMin, floa
 
 __host__ __device__ inline bool Hittable::hitCone(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const
 {
-	// solve the quadratic equation
+	// intersect ray with quadric
 	float t0 = 0.0f;
 	float t1 = 0.0f;
 	if (!hitQuadric<1, -1, 1>(r.origin(), r.direction(), t0, t1) || t0 > tMax || t1 <= tMin)
@@ -233,6 +244,7 @@ __host__ __device__ inline bool Hittable::hitCone(const Ray &r, float tMin, floa
 		return false;
 	}
 
+	// the cone is infinite, but we limit it to a maximum extent
 	const float hitPointHeight0 = r.m_dir.y * t0 + r.origin().y;
 	const float hitPointHeight1 = r.m_dir.y * t1 + r.origin().y;
 	const bool hitPointValid0 = t0 > tMin && t0 <= tMax && hitPointHeight0 >= -1.0f && hitPointHeight0 <= 1.0f;
@@ -255,7 +267,7 @@ __host__ __device__ inline bool Hittable::hitCone(const Ray &r, float tMin, floa
 
 __host__ __device__ inline bool Hittable::hitParaboloid(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const
 {
-	// solve the quadratic equation
+	// intersect ray with quadric
 	float t0 = 0.0f;
 	float t1 = 0.0f;
 	if (!hitQuadric<1, 0, 1, 0, 0, 0, 0, -1>(r.origin(), r.direction(), t0, t1) || t0 > tMax || t1 <= tMin)
@@ -263,6 +275,7 @@ __host__ __device__ inline bool Hittable::hitParaboloid(const Ray &r, float tMin
 		return false;
 	}
 
+	// the paraboliod is infinite in the y direction, but we limit it to a maximum extent
 	const float hitPointHeight0 = r.m_dir.y * t0 + r.origin().y;
 	const float hitPointHeight1 = r.m_dir.y * t1 + r.origin().y;
 	const bool hitPointValid0 = t0 > tMin && t0 <= tMax && hitPointHeight0 >= -1.0f && hitPointHeight0 <= 1.0f;
@@ -317,12 +330,15 @@ inline __host__ __device__ bool Hittable::hitQuad(const Ray &r, float tMin, floa
 
 inline __host__ __device__ bool Hittable::hitBox(const Ray &r, float tMin, float tMax, float &t, vec3 &normal, float &u, float &v) const
 {
+	// reuse AABB intersection for this shape
 	AABB aabb = { vec3(-1.0f), vec3(1.0f) };
 	if (!aabb.intersect(r, tMin, tMax, t))
 	{
 		return false;
 	}
 
+	// compute normal by finding the maximum absolute component of a point on the box 
+	// (box is centered around the local coordinate system center)
 	normal = r.at(t);
 	vec3 absN = vec3(fabsf(normal.x), fabsf(normal.y), fabsf(normal.z));
 	if (absN.x > absN.y && absN.x > absN.z)

@@ -21,6 +21,8 @@
 #endif // GENERATE_SCENE_FILE
 
 #if GENERATE_SCENE_FILE
+
+// generates a scene file (generated_scene.json) with a few hundred random objects and a skybox
 void generateSceneFile()
 {
 	nlohmann::json jscene;
@@ -134,6 +136,8 @@ void generateSceneFile()
 }
 #endif // GENERATE_SCENE_FILE
 
+
+// holds general application parameters that can be configured from the command line
 struct Params
 {
 	unsigned int m_width = 1024;
@@ -157,10 +161,12 @@ bool processArgs(int argc, char *argv[], Params &params)
 	constexpr const char *outputOption = "-o";
 	constexpr const char *outputHdrOption = "-ohdr";
 
+	// initialize params with default values
 	params = {};
 
 	bool displayHelp = false;
 
+	// walk through command line arguments and evaluate them
 	int i = 1;
 	for (; i < argc;)
 	{
@@ -265,6 +271,7 @@ bool processArgs(int argc, char *argv[], Params &params)
 		}
 	}
 
+	// last argument should be filepath to scene file
 	if (i < argc && argc > 1)
 	{
 		params.m_inputFilepath = argv[argc - 1];
@@ -301,6 +308,7 @@ bool processArgs(int argc, char *argv[], Params &params)
 
 Camera loadScene(Pathtracer &pathtracer, const Params &params)
 {
+	// using a map lets us avoid loading the same texture multiple times
 	std::map<std::string, uint32_t> texturePathToHandle;
 
 	auto getTextureHandle = [&](const std::string &filepath) -> uint32_t
@@ -310,11 +318,13 @@ Camera loadScene(Pathtracer &pathtracer, const Params &params)
 			return 0;
 		}
 
+		// try to look for the texture in our map
 		auto it = texturePathToHandle.find(filepath);
 		if (it != texturePathToHandle.end())
 		{
 			return it->second;
 		}
+		// if this is the first time we encounter this texture, load it and store its handle in the map
 		else
 		{
 			uint32_t handle = pathtracer.loadTexture(filepath.c_str());
@@ -322,6 +332,8 @@ Camera loadScene(Pathtracer &pathtracer, const Params &params)
 			return handle;
 		}
 	};
+
+	// save extraction of values from json objects
 
 	auto getString = [](const nlohmann::basic_json<> &object, const char *key, std::string &result) -> bool
 	{
@@ -368,6 +380,7 @@ Camera loadScene(Pathtracer &pathtracer, const Params &params)
 		return degree * (1.0f / 180.0f) * 3.14159265358979323846f;
 	};
 
+	// open json file with scene
 	nlohmann::json jscene;
 	{
 		std::ifstream file(params.m_inputFilepath);
@@ -390,6 +403,7 @@ Camera loadScene(Pathtracer &pathtracer, const Params &params)
 		}
 	}
 
+	// generate objects from scene file
 	std::vector<CpuHittable> objects;
 
 	if (jscene.contains("objects") && jscene["objects"].is_array())
@@ -398,7 +412,6 @@ Camera loadScene(Pathtracer &pathtracer, const Params &params)
 
 		for (const auto &o : jscene["objects"])
 		{
-
 			HittableType hittableType = HittableType::SPHERE;
 			vec3 position = 0.0f;
 			vec3 rotation = 0.0f;
@@ -490,19 +503,20 @@ Camera loadScene(Pathtracer &pathtracer, const Params &params)
 				}
 			}
 
-			objects.push_back(CpuHittable(hittableType, position, vec3(radians(rotation.x), radians(rotation.y), radians(rotation.z)), scale, Material2(materialType, baseColor, emissive, roughness, metalness, textureHandle)));
+			objects.push_back(CpuHittable(hittableType, position, vec3(radians(rotation.x), radians(rotation.y), radians(rotation.z)), scale, Material(materialType, baseColor, emissive, roughness, metalness, textureHandle)));
 		}
 
 		pathtracer.setScene(objects.size(), objects.data());
 	}
 
+	// skybox
 	std::string skyboxTexturePath;
 	if (getString(jscene, "skybox", skyboxTexturePath))
 	{
 		pathtracer.setSkyboxTextureHandle(getTextureHandle(skyboxTexturePath));
 	}
 
-
+	// camera
 	vec3 position = 0.0f;
 	vec3 look_at = vec3(0.0f, 0.0f, -1.0f);
 	float fovy = 60.0f;
@@ -605,8 +619,11 @@ int main(int argc, char *argv[])
 
 	Camera camera = loadScene(pathtracer, params);
 
+	// headless rendering: do not open a window and simply accumulate params.m_spp samples and optionally
+	// save the resulting image
 	if (!params.m_showWindow)
 	{
+		// we cant compute all samples in one go or we risk getting a TDR on slower machines
 		constexpr uint32_t samplesPerIteration = 8;
 		float totalGpuTime = 0.0f;
 
@@ -631,6 +648,8 @@ int main(int argc, char *argv[])
 			saveImage(params, pathtracer);
 		}
 	}
+	// rendering with window: present each iteration to the user and optionally allow manipulating the camera and saving screenshots.
+	// of controls are disabled, we optionally save the resulting image once all samples are accumulated
 	else
 	{
 		double lastTime = glfwGetTime();
@@ -640,6 +659,7 @@ int main(int argc, char *argv[])
 		bool savedFileAutomatically = false;
 		float totalGpuTime = 0.0f;
 
+		// we keep the window open even after having accumulated all samples
 		while (!window->shouldClose())
 		{
 			double time = glfwGetTime();
@@ -650,7 +670,7 @@ int main(int argc, char *argv[])
 			bool resetAccumulation = false;
 			bool saveToFile = false;
 
-			// handle input
+			// handle input (optional)
 			if (userInput)
 			{
 				userInput->input();
@@ -679,6 +699,7 @@ int main(int argc, char *argv[])
 					}
 				}
 
+				// reset accumulation if camera was rotatd
 				if (mouseDelta[0] * mouseDelta[0] + mouseDelta[1] * mouseDelta[1] > 0.0f)
 				{
 					camera.rotate(mouseDelta[1] * 0.005f, mouseDelta[0] * 0.005f, 0.0f);
@@ -710,6 +731,8 @@ int main(int argc, char *argv[])
 					cameraTranslation[0] = mod * (float)timeDelta;
 					pressed = true;
 				}
+
+				// reset accumulation if camera was moved
 				if (pressed)
 				{
 					camera.translate(cameraTranslation[0], cameraTranslation[1], cameraTranslation[2]);
@@ -730,6 +753,7 @@ int main(int argc, char *argv[])
 				++accumulatedSamples;
 
 				totalGpuTime += pathtracer.getTiming();
+
 				if (accumulatedSamples == params.m_spp)
 				{
 					printf("Finished accumulating %d samples in %f ms GPU time\n", (int)params.m_spp, totalGpuTime);

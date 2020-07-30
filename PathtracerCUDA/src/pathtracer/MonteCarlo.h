@@ -1,6 +1,7 @@
 #pragma once
 #include "brdf.h"
 
+// transforms direction vector v from tangent space to world space. N needs to be in world space
 __host__ __device__ inline vec3 tangentToWorld(const vec3 &N, const vec3 &v)
 {
 	vec3 up = fabsf(N.z) < 0.999f ? vec3(0.0f, 0.0f, 1.0f) : vec3(1.0f, 0.0f, 0.0f);
@@ -10,6 +11,7 @@ __host__ __device__ inline vec3 tangentToWorld(const vec3 &N, const vec3 &v)
 	return normalize(tangent * v.x + bitangent * v.y + N * v.z);
 }
 
+// transforms direction vector v from world space to tangent space. N needs to be in world space
 __host__ __device__ inline vec3 worldToTangent(const vec3 &N, const vec3 &v)
 {
 	vec3 up = fabsf(N.z) < 0.999f ? vec3(0.0f, 0.0f, 1.0f) : vec3(1.0f, 0.0f, 0.0f);

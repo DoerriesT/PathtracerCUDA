@@ -14,6 +14,7 @@ __host__ __device__ inline Camera::Camera(
 	m_horizontal(2.0f, 0.0f, 0.0f),
 	m_vertical(0.0f, 2.0f, 0.0f)
 {
+	// construct camera space vectors
 	m_backward = normalize(m_origin - lookat);
 	m_right = normalize(cross(up, m_backward));
 	m_up = cross(m_backward, m_right);
@@ -29,14 +30,14 @@ __host__ __device__ inline Ray Camera::getRay(float s, float t)
 __host__ __device__ inline void Camera::rotate(float pitch, float yaw, float roll)
 {
 	// rotate around local x axis
-	const float cosPitch = cos(-pitch);
-	const float sinPitch = sin(-pitch);
+	const float cosPitch = cosf(-pitch);
+	const float sinPitch = sinf(-pitch);
 	m_up = rotateAroundVector(m_up, m_right, cosPitch, sinPitch);
 	m_backward = rotateAroundVector(m_backward, m_right, cosPitch, sinPitch);
 
 	// rotate around up axis
-	const float cosYaw = cos(-yaw);
-	const float sinYaw = sin(-yaw);
+	const float cosYaw = cosf(-yaw);
+	const float sinYaw = sinf(-yaw);
 	m_right = rotateAroundVector(m_right, vec3(0.0f, 1.0f, 0.0f), cosYaw, sinYaw);
 	m_up = rotateAroundVector(m_up, vec3(0.0f, 1.0f, 0.0f), cosYaw, sinYaw);
 	m_backward = rotateAroundVector(m_backward, vec3(0.0f, 1.0f, 0.0f), cosYaw, sinYaw);

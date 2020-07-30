@@ -2,6 +2,7 @@
 #include "AABB.h"
 #include <limits>
 
+// helper function to build the world matrix and its inverse from position, rotation and scale
 static void worldTransform(const vec3 &position, const vec3 &rotation, const vec3 &scale, float4 *localToWorldRows, float4 *worldToLocalRows)
 {
 	auto quatToRotMat = [](const float4 &q, float(&rotMat)[3][3])
@@ -111,7 +112,7 @@ CpuHittable::CpuHittable()
 {
 }
 
-CpuHittable::CpuHittable(HittableType type, const vec3 &position, const vec3 &rotation, const vec3 &scale, const Material2 &material)
+CpuHittable::CpuHittable(HittableType type, const vec3 &position, const vec3 &rotation, const vec3 &scale, const Material &material)
 	: m_invTransformRow0({ 1.0f, 0.0f, 0.0f, 0.0f }),
 	m_invTransformRow1({ 0.0f, 1.0f, 0.0f, 0.0f }),
 	m_invTransformRow2({ 0.0f, 0.0f, 1.0f, 0.0f }),
@@ -119,6 +120,7 @@ CpuHittable::CpuHittable(HittableType type, const vec3 &position, const vec3 &ro
 	m_aabb({ vec3(-1.0f), vec3(1.0f) }),
 	m_type(type)
 {
+	// adjust scale to not unnecessarily inflate the bounding box for 2d primitives
 	vec3 adjustedScale = scale;
 	if (m_type == HittableType::DISK || m_type == HittableType::QUAD)
 	{
@@ -139,20 +141,24 @@ CpuHittable::CpuHittable(HittableType type, const vec3 &position, const vec3 &ro
 		m_aabb.m_min = vec3(std::numeric_limits<float>::max());
 		m_aabb.m_max = vec3(-std::numeric_limits<float>::max());
 
+		// this could be exposed, so that the user could cut off a primitive after a certain extent (e.g. cut off the upper mirrored half of a cone)
 		float xExtend[2]{ -1.0f, 1.0f };
 		float yExtend[2]{ -1.0f, 1.0f };
 		float zExtend[2]{ -1.0f, 1.0f };
 
 		if (m_type == HittableType::DISK || m_type == HittableType::QUAD)
 		{
+			// make the extent of 2d primitives as small as possible along the y dimension
 			yExtend[0] = -0.01f;
 			yExtend[1] = 0.01f;
 		}
 		else if (m_type == HittableType::PARABOLOID)
 		{
+			// a paraboloid always has positive values, so we can half the size of the AABB
 			yExtend[0] = 0.0f;
 		}
 
+		// transform each corner of the local extent into world space and build the AABB
 		for (int z = 0; z < 2; ++z)
 		{
 			for (int y = 0; y < 2; ++y)

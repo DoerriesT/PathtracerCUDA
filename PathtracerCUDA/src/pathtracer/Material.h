@@ -11,10 +11,10 @@ enum class MaterialType : uint32_t
 	LAMBERT, GGX, LAMBERT_GGX
 };
 
-class Material2
+class Material
 {
 public:
-	__host__ __device__ Material2(MaterialType type = MaterialType::LAMBERT, const vec3 &baseColor = vec3(1.0f), const vec3 &emissive = vec3(0.0f), float roughness = 0.5f, float metalness = 0.0f, uint32_t textureIndex = 0);
+	__host__ __device__ Material(MaterialType type = MaterialType::LAMBERT, const vec3 &baseColor = vec3(1.0f), const vec3 &emissive = vec3(0.0f), float roughness = 0.5f, float metalness = 0.0f, uint32_t textureIndex = 0);
 	__device__ vec3 sample(const Ray &rIn, const HitRecord &rec, curandState &randState, Ray &scattered, float &pdf, cudaTextureObject_t *textures) const;
 	__device__ vec3 getEmitted(const Ray &rIn, const HitRecord &rec) const;
 

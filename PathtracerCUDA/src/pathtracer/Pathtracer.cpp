@@ -11,6 +11,7 @@
 #include "stb_image.h"
 #include <iostream>
 
+// we internally manage an array of textures. MAX_TEXTURE_COUNT is the size of this array 
 #define MAX_TEXTURE_COUNT 64
 
 #define checkCudaErrors(val) check_cuda( (val), #val, __FILE__, __LINE__ )
@@ -36,37 +37,34 @@ Pathtracer::Pathtracer(uint32_t width, uint32_t height, unsigned int openglPixel
 	m_textures(new cudaTextureObject_t[MAX_TEXTURE_COUNT]),
 	m_textureMemory(new cudaArray *[MAX_TEXTURE_COUNT])
 {
-	// init cuda
+	checkCudaErrors(cudaSetDevice(0));
+
+	// optionally register an opengl pixel buffer with cuda
+	if (openglPixelBuffer)
 	{
-		checkCudaErrors(cudaSetDevice(0));
-
-		// optionally register an opengl pixel buffer with cuda
-		if (openglPixelBuffer)
-		{
-			checkCudaErrors(cudaGraphicsGLRegisterBuffer(&m_pixelBufferCuda, openglPixelBuffer, cudaGraphicsMapFlagsWriteDiscard));
-		}
-
-		// alloc memory for prng state
-		checkCudaErrors(cudaMalloc((void **)&m_gpuRandState, m_width * m_height * sizeof(curandState)));
-
-		// init prng state
-		dim3 threads(8, 8, 1);
-		dim3 blocks((m_width + 7) / 8, (m_height + 7) / 8, 1);
-		initRandState << <blocks, threads >> > (width, height, m_gpuRandState);
-		checkCudaErrors(cudaGetLastError());
-		checkCudaErrors(cudaDeviceSynchronize());
-
-		// alloc memory for accum buffer
-		checkCudaErrors(cudaMalloc((void **)&m_gpuAccumBuffer, m_width * m_height * sizeof(float4)));
-		m_cpuAccumBuffer = new float[m_width * m_height * 4];
-
-		m_cpuResultBuffer = new char[m_width * m_height * 4];
-
-		checkCudaErrors(cudaEventCreate(&m_startEvent));
-		checkCudaErrors(cudaEventCreate(&m_stopEvent));
-
-		checkCudaErrors(cudaMalloc((void **)&m_gpuTextures, MAX_TEXTURE_COUNT * sizeof(cudaTextureObject_t)));
+		checkCudaErrors(cudaGraphicsGLRegisterBuffer(&m_pixelBufferCuda, openglPixelBuffer, cudaGraphicsMapFlagsWriteDiscard));
 	}
+
+	// alloc memory for prng state
+	checkCudaErrors(cudaMalloc((void **)&m_gpuRandState, m_width * m_height * sizeof(curandState)));
+
+	// init prng state
+	dim3 threads(8, 8, 1);
+	dim3 blocks((m_width + 7) / 8, (m_height + 7) / 8, 1);
+	initRandState << <blocks, threads >> > (width, height, m_gpuRandState);
+	checkCudaErrors(cudaGetLastError());
+	checkCudaErrors(cudaDeviceSynchronize());
+
+	// alloc memory for accum buffer
+	checkCudaErrors(cudaMalloc((void **)&m_gpuAccumBuffer, m_width * m_height * sizeof(float4)));
+	m_cpuAccumBuffer = new float[m_width * m_height * 4];
+
+	m_cpuResultBuffer = new char[m_width * m_height * 4];
+
+	checkCudaErrors(cudaEventCreate(&m_startEvent));
+	checkCudaErrors(cudaEventCreate(&m_stopEvent));
+
+	checkCudaErrors(cudaMalloc((void **)&m_gpuTextures, MAX_TEXTURE_COUNT * sizeof(cudaTextureObject_t)));
 }
 
 Pathtracer::~Pathtracer()
@@ -74,8 +72,11 @@ Pathtracer::~Pathtracer()
 	checkCudaErrors(cudaDeviceSynchronize());
 
 	// unregister pixel buffer
-	checkCudaErrors(cudaGraphicsUnregisterResource(m_pixelBufferCuda));
-
+	if (m_pixelBufferCuda)
+	{
+		checkCudaErrors(cudaGraphicsUnregisterResource(m_pixelBufferCuda));
+	}
+	
 	// free cuda memory
 	checkCudaErrors(cudaFree(m_gpuAccumBuffer));
 	checkCudaErrors(cudaFree(m_gpuRandState));
@@ -109,11 +110,18 @@ Pathtracer::~Pathtracer()
 
 void Pathtracer::setScene(size_t count, const CpuHittable *hittables)
 {
+	if (count == 0)
+	{
+		printf("Setting an empty scene is not allowed!\n");
+		return;
+	}
+
+	// construct a BVH from the given CpuHittables
 	BVH bvh;
 	bvh.build(count, hittables, 4);
 	assert(bvh.validate());
 
-	// translate hittables to their cpu version
+	// translate hittables to their gpu version
 	std::vector<Hittable> gpuHittables;
 	{
 		auto &bvhElements = bvh.getElements();
@@ -123,7 +131,7 @@ void Pathtracer::setScene(size_t count, const CpuHittable *hittables)
 			gpuHittables.push_back(e.getGpuHittable());
 		}
 	}
-	
+
 	// upload to gpu
 	{
 		// free memory of previous allocations
@@ -225,6 +233,7 @@ float Pathtracer::getTiming() const
 
 uint32_t Pathtracer::loadTexture(const char *path)
 {
+	// we allocated the maximum number of textures, return a null handle
 	if (m_textureCount >= MAX_TEXTURE_COUNT)
 	{
 		return 0;
@@ -232,14 +241,16 @@ uint32_t Pathtracer::loadTexture(const char *path)
 
 	checkCudaErrors(cudaDeviceSynchronize());
 
-	bool hdrTexture = stbi_is_hdr(path);
+	// does the texture contain hdr data?
+	const bool hdrTexture = stbi_is_hdr(path);
 
 	// load texture from file
 	int width;
 	int height;
 	int channelCount;
 	void *data = hdrTexture ? (void *)stbi_loadf(path, &width, &height, &channelCount, 4) : (void *)stbi_load(path, &width, &height, &channelCount, 4);
-	
+
+	// loading the texture failed, return a null handle
 	if (!data)
 	{
 		return 0;
@@ -271,6 +282,7 @@ uint32_t Pathtracer::loadTexture(const char *path)
 
 	checkCudaErrors(cudaCreateTextureObject(&m_textures[m_textureCount], &resDesc, &texDesc, nullptr));
 
+	// copy array of textures to gpu memory
 	checkCudaErrors(cudaMemcpy(m_gpuTextures, m_textures, MAX_TEXTURE_COUNT * sizeof(cudaTextureObject_t), cudaMemcpyKind::cudaMemcpyHostToDevice));
 	checkCudaErrors(cudaDeviceSynchronize());
 

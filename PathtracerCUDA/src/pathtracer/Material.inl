@@ -6,28 +6,10 @@
 #include "MonteCarlo.h"
 
 
-
-__host__ __device__ inline float fresnelSchlick(float cosine, float ior)
-{
-	auto r0 = (1.0f - ior) / (1.0f + ior);
-	r0 = r0 * r0;
-	float powerTerm = 1.0f - cosine;
-	powerTerm *= powerTerm;
-	powerTerm *= powerTerm;
-	powerTerm *= 1.0f - cosine;
-	return r0 + (1.0f - r0) * powf(1.0f - cosine, 5.0f);
-}
-
-__host__ __device__ inline  float ffmin(float a, float b)
-{
-	return a < b ? a : b;
-}
-
-
-__host__ __device__ inline Material2::Material2(MaterialType type, const vec3 &baseColor, const vec3 &emissive, float roughness, float metalness, uint32_t textureIndex)
+__host__ __device__ inline Material::Material(MaterialType type, const vec3 &baseColor, const vec3 &emissive, float roughness, float metalness, uint32_t textureIndex)
 	:m_baseColor(baseColor),
 	m_emissive(emissive),
-	m_roughness(roughness < 0.04f ? 0.04f : roughness),
+	m_roughness(roughness < 0.04f ? 0.04f : roughness), // limit to a minimum roughness to avoid precision errors
 	m_metalness(metalness),
 	m_textureIndex(textureIndex),
 	m_materialType(type)
@@ -35,7 +17,7 @@ __host__ __device__ inline Material2::Material2(MaterialType type, const vec3 &b
 
 }
 
-__device__ vec3 inline Material2::sample(const Ray &rIn, const HitRecord &rec, curandState &randState, Ray &scattered, float &pdf, cudaTextureObject_t *textures) const
+__device__ vec3 inline Material::sample(const Ray &rIn, const HitRecord &rec, curandState &randState, Ray &scattered, float &pdf, cudaTextureObject_t *textures) const
 {
 	// we do lighting in tangent space
 	const vec3 V = worldToTangent(rec.m_normal, -rIn.m_dir);
@@ -58,6 +40,8 @@ __device__ vec3 inline Material2::sample(const Ray &rIn, const HitRecord &rec, c
 	float rnd0 = curand_uniform(&randState);
 	float rnd1 = curand_uniform(&randState);
 
+	// we could use inheritance instead of using a single class and switching on an enum,
+	// but doing so gives much worse performance with CUDA
 	switch (m_materialType)
 	{
 	case MaterialType::LAMBERT:
@@ -75,25 +59,26 @@ __device__ vec3 inline Material2::sample(const Ray &rIn, const HitRecord &rec, c
 	return attenuation;
 }
 
-__device__ inline vec3 Material2::getEmitted(const Ray &rIn, const HitRecord &rec) const
+__device__ inline vec3 Material::getEmitted(const Ray &rIn, const HitRecord &rec) const
 {
 	return m_emissive;
 }
 
-inline __device__ vec3 Material2::sampleLambert(const vec3 &baseColor, const vec3 &V, float rnd0, float rnd1, vec3 &scatteredDir, float &pdf) const
+inline __device__ vec3 Material::sampleLambert(const vec3 &baseColor, const vec3 &V, float rnd0, float rnd1, vec3 &scatteredDir, float &pdf) const
 {
 	scatteredDir = cosineSampleHemisphere(rnd0, rnd1);
 	pdf = cosineSampleHemispherePdf(scatteredDir);
 	return Diffuse_Lambert(baseColor);
 }
 
-inline __device__ vec3 Material2::sampleGGX(const vec3 &baseColor, const vec3 &V, float rnd0, float rnd1, vec3 &scatteredDir, float &pdf) const
+inline __device__ vec3 Material::sampleGGX(const vec3 &baseColor, const vec3 &V, float rnd0, float rnd1, vec3 &scatteredDir, float &pdf) const
 {
 	const float a = m_roughness * m_roughness;
 	const float a2 = a * a;
 
 	scatteredDir = reflect(-V, importanceSampleGGXVNDF(V, rnd0, rnd1, a));
 
+	// sometimes the reflected direction is below the horizon, so we need to kill this ray
 	if (scatteredDir.z < 0.0f)
 	{
 		pdf = 1.0f;
@@ -113,7 +98,7 @@ inline __device__ vec3 Material2::sampleGGX(const vec3 &baseColor, const vec3 &V
 	return Specular_GGX(F0, NdotV, NdotL, NdotH, VdotH, a2);
 }
 
-inline __device__ vec3 Material2::sampleLambertGGX(const vec3 &baseColor, const vec3 &V, float rnd0, float rnd1, vec3 &scatteredDir, float &pdf) const
+inline __device__ vec3 Material::sampleLambertGGX(const vec3 &baseColor, const vec3 &V, float rnd0, float rnd1, vec3 &scatteredDir, float &pdf) const
 {
 	const float a = m_roughness * m_roughness;
 	const float a2 = a * a;
@@ -130,6 +115,7 @@ inline __device__ vec3 Material2::sampleLambertGGX(const vec3 &baseColor, const 
 		scatteredDir = reflect(-V, importanceSampleGGXVNDF(V, rnd0, rnd1, a));
 	}
 
+	// sometimes the reflected direction is below the horizon, so we need to kill this ray
 	if (scatteredDir.z < 0.0f)
 	{
 		pdf = 1.0f;
@@ -142,6 +128,7 @@ inline __device__ vec3 Material2::sampleLambertGGX(const vec3 &baseColor, const 
 	const float NdotH = clamp(H.z);
 	const float NdotL = clamp(scatteredDir.z);
 
+	// average the pdfs of both diffuse and specular distributions
 	const float cosinePdf = cosineSampleHemispherePdf(scatteredDir);
 	const float ggxPdf = importanceSampleGGXVNDFPdf(H, V, a);
 	pdf = (ggxPdf + cosinePdf) * 0.5f;
@@ -152,5 +139,6 @@ inline __device__ vec3 Material2::sampleLambertGGX(const vec3 &baseColor, const 
 	const vec3 kD = Diffuse_Lambert(baseColor);
 	//const vec3 kD = (28.0f / (23.0f * PI)) * baseColor * (1.0f - F0) * (1.0f - pow5(1.0f - 0.5f * NdotL)) * (1.0f - (1.0f - pow5(NdotV)));
 
+	// conductors have no diffuse light interaction
 	return kD * (1.0f - m_metalness) + kS;
 }
