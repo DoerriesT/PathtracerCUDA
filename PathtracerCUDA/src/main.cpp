@@ -1,7 +1,6 @@
 #include "Pathtracer.h"
 #include <glad/glad.h>
 #include <cassert>
-#include "Utility.h"
 #include <GLFW/glfw3.h>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
@@ -18,7 +17,6 @@
 #include <random>
 #include <GLFW/glfw3.h>
 #include <cassert>
-#include "Utility.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <iomanip>
@@ -588,7 +586,8 @@ int main(int argc, char *argv[])
 		{
 			if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 			{
-				Utility::fatalExit("Failed to initialize GLAD!", EXIT_FAILURE);
+				printf("Failed to initialize GLAD!\n");
+				return EXIT_FAILURE;
 			}
 
 			glViewport(0, 0, params.m_width, params.m_height);

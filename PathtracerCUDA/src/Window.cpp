@@ -1,6 +1,5 @@
 #include "Window.h"
 #include <GLFW/glfw3.h>
-#include "Utility.h"
 #include "ContainerUtility.h"
 
 void windowSizeCallback(GLFWwindow *window, int width, int height);
@@ -45,7 +44,8 @@ Window::Window(unsigned int width, unsigned int height, const std::string &title
 	if (!m_windowHandle)
 	{
 		glfwTerminate();
-		Utility::fatalExit("Failed to create GLFW window", EXIT_FAILURE);
+		printf("Failed to create GLFW window\n");
+		exit(EXIT_FAILURE);
 		return;
 	}
 

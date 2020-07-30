@@ -12,9 +12,6 @@
     <ClCompile Include="src\Window.cpp">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\Utility.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
     <ClCompile Include="src\UserInput.cpp">
       <Filter>src</Filter>
     </ClCompile>
@@ -42,9 +39,6 @@
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\ContainerUtility.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Utility.h">
       <Filter>src</Filter>
     </ClInclude>
     <ClInclude Include="src\IInputListener.h">

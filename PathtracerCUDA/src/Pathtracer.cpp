@@ -1,7 +1,6 @@
 #include "Pathtracer.h"
 #include <glad/glad.h>
 #include <cassert>
-#include "Utility.h"
 #include <GLFW/glfw3.h>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
