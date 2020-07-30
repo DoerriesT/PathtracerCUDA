@@ -1,7 +1,6 @@
 #include "Pathtracer.h"
 #include <glad/glad.h>
 #include <cassert>
-#include <GLFW/glfw3.h>
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include "cuda_gl_interop.h"
@@ -22,7 +21,7 @@ static void check_cuda(cudaError_t result, char const *const func, const char *c
 			file << ":" << line << " '" << func << "' \n";
 		// Make sure we call CUDA Device Reset before exiting
 		cudaDeviceReset();
-		exit(99);
+		exit(EXIT_FAILURE);
 	}
 }
 

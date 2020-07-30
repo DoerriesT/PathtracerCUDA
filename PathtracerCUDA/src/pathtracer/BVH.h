@@ -1,7 +1,6 @@
 #pragma once
-#include "vec3.h"
-#include "AABB.h"
 #include <vector>
+#include "AABB.h"
 #include "Hittable.h"
 
 struct BVHNode

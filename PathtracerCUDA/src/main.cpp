@@ -1,27 +1,18 @@
-#include "Pathtracer.h"
-#include <glad/glad.h>
-#include <cassert>
-#include <GLFW/glfw3.h>
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
-#include "cuda_gl_interop.h"
-#include <curand_kernel.h>
-#include "kernels/initRandState.h"
-#include "kernels/trace.h"
-#include "stb_image.h"
 #include <cstdlib>
-#include "Window.h"
-#include "UserInput.h"
-#include "Pathtracer.h"
-#include "Camera.h"
-#include <random>
-#include <GLFW/glfw3.h>
 #include <cassert>
-#include <nlohmann/json.hpp>
 #include <fstream>
 #include <iomanip>
 #include <map>
+#include <random>
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <nlohmann/json.hpp>
+#include "stb_image.h"
 #include "stb_image_write.h"
+#include "util/Window.h"
+#include "util/UserInput.h"
+#include "pathtracer/Camera.h"
+#include "pathtracer/Pathtracer.h"
 
 #define GENERATE_SCENE_FILE 0
 

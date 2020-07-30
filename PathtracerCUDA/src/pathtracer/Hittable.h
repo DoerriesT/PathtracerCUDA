@@ -3,9 +3,7 @@
 #include "Material.h"
 #include "AABB.h"
 
-class Hittable;
 struct HitRecord;
-class AABB;
 struct Ray;
 
 enum class HittableType : uint32_t
