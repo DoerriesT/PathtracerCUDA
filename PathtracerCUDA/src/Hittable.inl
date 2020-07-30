@@ -93,19 +93,19 @@ __host__ __device__ inline bool Hittable::hit(const Ray &r, float tMin, float tM
 
 	switch (m_type)
 	{
-	case SPHERE:
+	case HittableType::SPHERE:
 		result = hitSphere(lr, tMin, tMax, t, normal, u, v); break;
-	case CYLINDER:
+	case HittableType::CYLINDER:
 		result = hitCylinder(lr, tMin, tMax, t, normal, u, v); break;
-	case DISK:
+	case HittableType::DISK:
 		result = hitDisk(lr, tMin, tMax, t, normal, u, v); break;
-	case CONE:
+	case HittableType::CONE:
 		result = hitCone(lr, tMin, tMax, t, normal, u, v); break;
-	case PARABOLOID:
+	case HittableType::PARABOLOID:
 		result = hitParaboloid(lr, tMin, tMax, t, normal, u, v); break;
-	case QUAD:
+	case HittableType::QUAD:
 		result = hitQuad(lr, tMin, tMax, t, normal, u, v); break;
-	case CUBE:
+	case HittableType::CUBE:
 		result = hitBox(lr, tMin, tMax, t, normal, u, v); break;
 	default:
 		break;

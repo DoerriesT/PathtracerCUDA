@@ -27,7 +27,7 @@ __host__ __device__ inline  float ffmin(float a, float b)
 __host__ __device__ inline Material2::Material2(MaterialType type, const vec3 &baseColor, const vec3 &emissive, float roughness, float metalness, uint32_t textureIndex)
 	:m_baseColor(baseColor),
 	m_emissive(emissive),
-	m_roughness(roughness),
+	m_roughness(roughness < 0.04f ? 0.04f : roughness),
 	m_metalness(metalness),
 	m_textureIndex(textureIndex),
 	m_materialType(type)

@@ -21,8 +21,129 @@
 #include "Utility.h"
 #include <nlohmann/json.hpp>
 #include <fstream>
+#include <iomanip>
 #include <map>
 #include "stb_image_write.h"
+
+#define GENERATE_SCENE_FILE 0
+
+#ifndef GENERATE_SCENE_FILE
+#define GENERATE_SCENE_FILE 0
+#endif // GENERATE_SCENE_FILE
+
+#if GENERATE_SCENE_FILE
+void generateSceneFile()
+{
+	nlohmann::json jscene;
+
+	jscene["camera"] =
+	{
+		{"position", {13.0f, 2.0f, 3.0f}},
+		{"look_at", {0.0f, 0.0f, 0.0f}},
+		{"fovy", 60.0f},
+	};
+
+	jscene["skybox"] = "skybox.hdr";
+
+	jscene["objects"] = nlohmann::json::array();
+	{
+		auto addObject = [](nlohmann::json &j,
+			HittableType hittableType, const vec3 &position, const vec3 &rotation, const vec3 &scale,
+			MaterialType materialType, const vec3 &baseColor, const vec3 &emissive, float roughness, float metalness, const char *texture)
+		{
+			auto hitToString = [](HittableType hittableType) -> const char *
+			{
+				switch (hittableType)
+				{
+				case HittableType::SPHERE:
+					return "SPHERE";
+				case HittableType::CYLINDER:
+					return "CYLINDER";
+				case HittableType::DISK:
+					return "DISK";
+				case HittableType::CONE:
+					return "CONE";
+				case HittableType::PARABOLOID:
+					return "PARABOLOID";
+				case HittableType::QUAD:
+					return "QUAD";
+				case HittableType::CUBE:
+					return "CUBE";
+				default:
+					assert(false);
+					break;
+				}
+				return "SPHERE";
+			};
+
+			auto matToString = [](MaterialType materialType) -> const char *
+			{
+				switch (materialType)
+				{
+				case MaterialType::LAMBERT:
+					return "LAMBERT";
+				case MaterialType::GGX:
+					return "GGX";
+				case MaterialType::LAMBERT_GGX:
+					return "LAMBERT_GGX";
+				default:
+					assert(false);
+					break;
+				}
+				return "LAMBERT";
+			};
+
+			j.push_back(
+				{
+					{"name", ""},
+					{"type", hitToString(hittableType) },
+					{"position", {position.x, position.y, position.z} },
+					{"rotation", {rotation.x, rotation.y, rotation.z} },
+					{"scale", {scale.x, scale.y, scale.z} },
+					{"material",
+						{
+							{"type", matToString(materialType)},
+							{"baseColor", {baseColor.x, baseColor.y, baseColor.z}},
+							{"emissive", {emissive.x, emissive.y, emissive.z}},
+							{"roughness", roughness},
+							{"metalness", metalness},
+							{"texture", texture ? texture : ""},
+						}
+					}
+				}
+			);
+		};
+
+		std::default_random_engine e;
+		std::uniform_real_distribution<float> d(0.0f, 1.0f);
+
+		addObject(jscene["objects"], HittableType::QUAD, vec3(), vec3(), vec3(20.0f), MaterialType::LAMBERT, vec3(1.0f), vec3(0.0f), 1.0f, 0.0f, nullptr);
+
+		for (int a = -11; a < 11; ++a)
+		{
+			for (int b = -11; b < 11; ++b)
+			{
+				auto chooseMat = d(e);
+				vec3 center(a + 0.9f * d(e), 0.2f, b + 0.9f * d(e));
+				if (length(center - vec3(4.0f, 0.2f, 0.0f)) > 0.9f)
+				{
+					auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
+					float metalness = d(e) > 0.5f ? 1.0f : 0.0f;
+					float roughness = d(e);
+					HittableType type = static_cast<HittableType>(static_cast<uint32_t>(d(e) * 7.0f));
+					addObject(jscene["objects"], type, center, vec3(), vec3(0.2f), MaterialType::LAMBERT_GGX, albedo, vec3(0.0f), roughness, metalness, nullptr);
+				}
+			}
+		}
+
+		addObject(jscene["objects"], HittableType::SPHERE, vec3(0.0f, 1.0f, 0.0f), vec3(), vec3(1.0f), MaterialType::LAMBERT_GGX, vec3(0.5f), vec3(0.0f), 0.5f, 0.0f, "earth.png");
+	}
+
+	std::ofstream infoFile("generated_scene.json", std::ios::out | std::ios::trunc);
+	infoFile << std::setw(4) << jscene << std::endl;
+	infoFile.close();
+}
+#endif // GENERATE_SCENE_FILE
 
 struct Params
 {
@@ -408,122 +529,6 @@ Camera loadScene(Pathtracer &pathtracer, const Params &params)
 	return Camera(position, look_at, vec3(0.0f, 1.0f, 0.0f), radians(fovy), (float)params.m_width / params.m_height, 0.0f, 10.0f);
 }
 
-Camera setupScene(Pathtracer &pathtracer, const Params &params)
-{
-	uint32_t skyboxTextureHandle = pathtracer.loadTexture("skybox.hdr");
-	uint32_t earthTextureHandle = pathtracer.loadTexture("earth.png");
-
-	pathtracer.setSkyboxTextureHandle(skyboxTextureHandle);
-
-	auto radians = [](float degree)
-	{
-		return degree * (1.0f / 180.0f) * 3.14159265358979323846f;
-	};
-
-	vec3 lookfrom(13, 2, 3);
-	vec3 lookat(0, 0, 0);
-	vec3 vup(0, 1, 0);
-	float dist_to_focus = 10.0f;
-	float aperture = 0.0f;
-	float aspectRatio = (float)params.m_width / params.m_height;
-
-	Camera camera(lookfrom, lookat, vup, radians(60.0f), aspectRatio, aperture, dist_to_focus);
-
-	// create entities
-	{
-		std::default_random_engine e;
-		std::uniform_real_distribution<float> d(0.0f, 1.0f);
-
-		std::vector<CpuHittable> hittablesCpu;
-		hittablesCpu.reserve(22 * 22 + 4);
-
-		// cornell box
-		//{
-		//	// right side
-		//	hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(1.0f, 1.0f, 0.0f), vec3(0.0f, radians(-90.0f), radians(-90.0f)), vec3(1.0f), Material2(vec3(0.0f, 1.0f, 0.0f))));
-		//
-		//	// left side
-		//	hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(-1.0f, 1.0f, 0.0f), vec3(0.0f, radians(90.0f), radians(90.0f)), vec3(1.0f), Material2(vec3(1.0f, 0.0f, 0.0f))));
-		//
-		//	// back
-		//	hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(0.0f, 1.0f, -1.0f), vec3(radians(-90.0f), 0.0f, 0.0f), vec3(1.0f), Material2(vec3(1.0f, 1.0f, 1.0f))));
-		//
-		//	// top
-		//	hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(0.0f, 2.0f, 0.0f), vec3(), vec3(1.0f), Material2(vec3(1.0f, 1.0f, 1.0f))));
-		//
-		//	// bottom
-		//	hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(0.0f, 0.0f, 0.0f), vec3(), vec3(1.0f), Material2(vec3(1.0f, 1.0f, 1.0f))));
-		//
-		//	// light
-		//	hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(0.0f, 1.99f, 0.0f), vec3(), vec3(0.3f), Material2(vec3(1.0f, 1.0f, 1.0f), vec3(10.0f))));
-		//
-		//	// big box
-		//	hittablesCpu.push_back(CpuHittable(HittableType::CUBE, vec3(-0.5f, 0.75f, -0.5f), vec3(0.0f, radians(40.0f), 0.0f), vec3(0.25f, 0.75f, 0.25f), Material2(vec3(1.0f, 1.0f, 1.0f))));
-		//
-		//	// small box
-		//	hittablesCpu.push_back(CpuHittable(HittableType::CUBE, vec3(0.5f, 0.25f, 0.5f), vec3(0.0f, radians(-30.0f), 0.0f), vec3(0.25f), Material2(vec3(1.0f, 1.0f, 1.0f))));
-		//}
-
-		hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(0.0f, 0.0f, 0.0f), vec3(), vec3(20.0f), Material2(MaterialType::LAMBERT, vec3(1.0f), vec3(0.0f), 1.0f, 0.0f)));
-		//hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, vec3(0.0f, -1000.0f, 0.0f), vec3(), vec3(1000.0f), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
-		//hittablesCpu.push_back(CpuHittable(HittableType::QUAD, vec3(0.0f, 0.0f, 0.0f), vec3(), vec3(100.0f, 1.0f, 100.0f), Material2(vec3(0.5f))));// Material(Material::Type::LAMBERTIAN, vec3(0.5f, 0.5f, 0.5f))));
-
-
-		for (int a = -11; a < 11; ++a)
-		{
-			for (int b = -11; b < 11; ++b)
-			{
-				auto chooseMat = d(e);
-				vec3 center(a + 0.9f * d(e), 0.2f, b + 0.9f * d(e));
-				if (length(center - vec3(4.0f, 0.2f, 0.0f)) > 0.9f)
-				{
-					auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
-					float metalness = d(e) > 0.5f ? 1.0f : 0.0f;
-					hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, center, vec3(), vec3(0.2f), Material2(MaterialType::LAMBERT_GGX, albedo, 0.0f, 0.1f, metalness)));
-					//if (chooseMat < 0.8f)
-					//{
-					//	// diffuse
-					//	auto albedo = vec3(d(e), d(e), d(e)) * vec3(d(e), d(e), d(e));
-					//	hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, CpuHittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::LAMBERTIAN, albedo)));
-					//}
-					//else if (chooseMat < 0.95f)
-					//{
-					//	// metal
-					//	auto albedo = vec3(d(e), d(e), d(e)) * 0.5f + 0.5f;
-					//	auto fuzz = d(e) * 0.5f;
-					//	hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, CpuHittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::METAL, albedo, fuzz)));
-					//}
-					//else
-					//{
-					//	// glass
-					//	hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, CpuHittable::Payload(Sphere{ center, 0.2f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
-					//}
-				}
-			}
-		}
-
-		hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, vec3(0.0f, 1.0f, 0.0f), vec3(), vec3(1.0f), Material2(MaterialType::LAMBERT_GGX, vec3(0.5f), 0.0f, 0.5f, 0.0f, earthTextureHandle)));
-
-		//hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, CpuHittable::Payload(Sphere{ vec3(0.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::DIELECTRIC, vec3(0.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
-		//
-		//hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, CpuHittable::Payload(Sphere{ vec3(-4.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(0.4f, 0.2f, 0.1f))));
-		//
-		//hittablesCpu.push_back(CpuHittable(HittableType::SPHERE, CpuHittable::Payload(Sphere{ vec3(4.0f, 1.0f, 0.0f), 1.0f }), Material(Material::Type::METAL, vec3(0.7f, 0.6f, 0.5f), 0.0f)));
-		//
-		//hittablesCpu.push_back(CpuHittable(HittableType::CYLINDER, CpuHittable::Payload(Cylinder{ vec3(10.0f, 1.0f, 10.0f), 1.0f, 1.0f }), Material(Material::Type::DIELECTRIC, vec3(1.0f, 1.0f, 1.0f), 0.0f, 1.5f)));
-		//
-		//hittablesCpu.push_back(CpuHittable(HittableType::DISK, CpuHittable::Payload(Disk{ vec3(10.0f, 2.0f, 10.0f), 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(1.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
-		//
-		//hittablesCpu.push_back(CpuHittable(HittableType::CONE, CpuHittable::Payload(Cone{ vec3(0.0f, 3.0f, 0.0f), 1.0f, 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(1.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
-		//
-		//hittablesCpu.push_back(CpuHittable(HittableType::PARABOLOID, CpuHittable::Payload(Paraboloid{ vec3(3.0f, 1.0f, 3.0f), 1.0f, 3.0f }), Material(Material::Type::METAL, vec3(1.0f, 1.0f, 1.0f), 0.0f, 1.5f)));
-
-		pathtracer.setScene(hittablesCpu.size(), hittablesCpu.data());
-	}
-
-	return camera;
-}
-
 void saveImage(const Params &params, Pathtracer &pathtracer)
 {
 	printf("Writing result to %s\n", params.m_outputFilepath);
@@ -547,6 +552,11 @@ void saveImage(const Params &params, Pathtracer &pathtracer)
 
 int main(int argc, char *argv[])
 {
+#if GENERATE_SCENE_FILE
+	generateSceneFile();
+	return EXIT_SUCCESS;
+#endif // GENERATE_SCENE_FILE
+
 	// fill parameter struct with command line arguments.
 	// exit if help text was displayed.
 	Params params;
@@ -624,7 +634,7 @@ int main(int argc, char *argv[])
 		}
 
 		printf("Finished accumulating %d samples in %f ms GPU time\n", (int)params.m_spp, totalGpuTime);
-		
+
 		// writing to file is optional
 		if (params.m_outputFilepath)
 		{

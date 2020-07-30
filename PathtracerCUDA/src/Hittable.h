@@ -8,7 +8,7 @@ struct HitRecord;
 class AABB;
 struct Ray;
 
-enum HittableType : uint32_t
+enum class HittableType : uint32_t
 {
 	SPHERE, CYLINDER, DISK, CONE, PARABOLOID, QUAD, CUBE
 };
