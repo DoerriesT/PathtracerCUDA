@@ -6,13 +6,9 @@ __host__ __device__ inline Camera::Camera(
 	const vec3 &lookat,
 	const vec3 &up,
 	float fovy,
-	float aspectRatio,
-	float aperture,
-	float focusDist)
+	float aspectRatio)
 	:m_tanHalfFovy(tan(fovy * 0.5f)),
 	m_aspectRatio(aspectRatio),
-	m_lensRadius(aperture * 0.5f),
-	m_focusDist(focusDist),
 	m_origin(position),
 	m_lowerLeftCorner(-1.0f, -1.0f, -1.0f),
 	m_horizontal(2.0f, 0.0f, 0.0f),
@@ -25,11 +21,9 @@ __host__ __device__ inline Camera::Camera(
 	update();
 }
 
-__device__ inline Ray Camera::getRay(float s, float t, curandState &randState)
+__device__ inline Ray Camera::getRay(float s, float t)
 {
-	vec3 rd = m_lensRadius * random_in_unit_disk(randState);
-	vec3 offset = m_right * rd.x + m_up * rd.y;
-	return Ray(m_origin + offset, normalize(m_lowerLeftCorner + s * m_horizontal + t * m_vertical - m_origin - offset));
+	return Ray(m_origin, normalize(m_lowerLeftCorner + s * m_horizontal + t * m_vertical - m_origin));
 }
 
 __host__ __device__ inline void Camera::rotate(float pitch, float yaw, float roll)
@@ -62,9 +56,9 @@ __host__ __device__ inline void Camera::update()
 	float halfWidth = m_aspectRatio * halfHeight;
 
 	m_lowerLeftCorner = m_origin
-		- halfWidth * m_right * m_focusDist
-		- halfHeight * m_up * m_focusDist
-		- m_backward * m_focusDist;
-	m_horizontal = 2.0f * halfWidth * m_right * m_focusDist;
-	m_vertical = 2.0f * halfHeight * m_up * m_focusDist;
+		- halfWidth * m_right
+		- halfHeight * m_up
+		- m_backward;
+	m_horizontal = 2.0f * halfWidth * m_right;
+	m_vertical = 2.0f * halfHeight * m_up;
 }

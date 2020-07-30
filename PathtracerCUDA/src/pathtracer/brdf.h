@@ -17,8 +17,8 @@ __host__ __device__ inline float D_GGX(float NdotH, float a2)
 // "Moving Frostbite to Physically Based Rendering"
 __host__ __device__ inline float V_SmithGGXCorrelated(float NdotV, float NdotL, float a2)
 {
-	float lambdaGGXV = NdotL * sqrt((-NdotV * a2 + NdotV) * NdotV + a2);
-	float lambdaGGXL = NdotV * sqrt((-NdotL * a2 + NdotL) * NdotL + a2);
+	float lambdaGGXV = NdotL * sqrtf((-NdotV * a2 + NdotV) * NdotV + a2);
+	float lambdaGGXL = NdotV * sqrtf((-NdotL * a2 + NdotL) * NdotL + a2);
 
 	return 0.5f / (lambdaGGXV + lambdaGGXL + 1e-5f); // avoids artifacs on some normal mapped surfaces
 }

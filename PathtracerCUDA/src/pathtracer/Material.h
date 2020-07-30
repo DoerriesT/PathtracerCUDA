@@ -1,6 +1,7 @@
 #pragma once
 #include "cuda_runtime.h"
 #include "vec3.h"
+#include <cstdint>
 
 struct HitRecord;
 struct Ray;
@@ -28,28 +29,6 @@ private:
 	__device__ vec3 sampleLambert(const vec3 &baseColor, const vec3 &V, float rnd0, float rnd1, vec3 &scatteredDir, float &pdf) const;
 	__device__ vec3 sampleGGX(const vec3 &baseColor, const vec3 &V, float rnd0, float rnd1, vec3 &scatteredDir, float &pdf) const;
 	__device__ vec3 sampleLambertGGX(const vec3 &baseColor, const vec3 &V, float rnd0, float rnd1, vec3 &scatteredDir, float &pdf) const;
-};
-
-class MaterialOld
-{
-public:
-	enum Type : uint32_t
-	{
-		LAMBERTIAN, METAL, DIELECTRIC
-	};
-
-	__host__ __device__ MaterialOld(Type type = LAMBERTIAN, const vec3 &albedo = vec3(1.0f), float fuzz = 0.0f, float ior = 1.0f);
-	__device__ bool scatter(const Ray &rIn, const HitRecord &rec, curandState &randState, vec3 &attenuation, Ray &scattered)  const;
-
-private:
-	vec3 m_albedo;
-	Type m_type;
-	float m_fuzz;
-	float m_ior;
-
-	__device__ bool scatterLambertian(const Ray &rIn, const HitRecord &rec, curandState &randState, vec3 &attenuation, Ray &scattered) const;
-	__device__ bool scatterMetal(const Ray &rIn, const HitRecord &rec, curandState &randState, vec3 &attenuation, Ray &scattered) const;
-	__device__ bool scatterDielectric(const Ray &rIn, const HitRecord &rec, curandState &randState, vec3 &attenuation, Ray &scattered) const;
 };
 
 

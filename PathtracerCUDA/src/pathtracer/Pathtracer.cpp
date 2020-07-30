@@ -9,6 +9,7 @@
 #include "kernels/trace.h"
 #include "kernels/tonemap.h"
 #include "stb_image.h"
+#include <iostream>
 
 #define MAX_TEXTURE_COUNT 64
 

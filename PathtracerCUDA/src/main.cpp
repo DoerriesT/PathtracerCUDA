@@ -515,7 +515,7 @@ Camera loadScene(Pathtracer &pathtracer, const Params &params)
 		getFloat(c, "fovy", fovy);
 	}
 
-	return Camera(position, look_at, vec3(0.0f, 1.0f, 0.0f), radians(fovy), (float)params.m_width / params.m_height, 0.0f, 10.0f);
+	return Camera(position, look_at, vec3(0.0f, 1.0f, 0.0f), radians(fovy), (float)params.m_width / params.m_height);
 }
 
 void saveImage(const Params &params, Pathtracer &pathtracer)

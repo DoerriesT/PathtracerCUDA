@@ -3,7 +3,7 @@
 
 __host__ __device__ inline vec3 tangentToWorld(const vec3 &N, const vec3 &v)
 {
-	vec3 up = abs(N.z) < 0.999f ? vec3(0.0f, 0.0f, 1.0f) : vec3(1.0f, 0.0f, 0.0f);
+	vec3 up = fabsf(N.z) < 0.999f ? vec3(0.0f, 0.0f, 1.0f) : vec3(1.0f, 0.0f, 0.0f);
 	vec3 tangent = normalize(cross(up, N));
 	vec3 bitangent = cross(N, tangent);
 	
@@ -12,7 +12,7 @@ __host__ __device__ inline vec3 tangentToWorld(const vec3 &N, const vec3 &v)
 
 __host__ __device__ inline vec3 worldToTangent(const vec3 &N, const vec3 &v)
 {
-	vec3 up = abs(N.z) < 0.999f ? vec3(0.0f, 0.0f, 1.0f) : vec3(1.0f, 0.0f, 0.0f);
+	vec3 up = fabsf(N.z) < 0.999f ? vec3(0.0f, 0.0f, 1.0f) : vec3(1.0f, 0.0f, 0.0f);
 	vec3 tangent = normalize(cross(up, N));
 	vec3 bitangent = cross(N, tangent);
 
@@ -22,9 +22,9 @@ __host__ __device__ inline vec3 worldToTangent(const vec3 &N, const vec3 &v)
 __host__ __device__ inline vec3 cosineSampleHemisphere(float u0, float u1)
 {
 	const float phi = 2.0f * PI * u0;
-	const float cosTheta = sqrt(u1);
-	const float sinTheta = sqrt(1.0f - u1);
-	return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+	const float cosTheta = sqrtf(u1);
+	const float sinTheta = sqrtf(1.0f - u1);
+	return vec3(cosf(phi) * sinTheta, sinf(phi) * sinTheta, cosTheta);
 }
 
 __host__ __device__ inline float cosineSampleHemispherePdf(const vec3 &L)
@@ -36,8 +36,8 @@ __host__ __device__ inline vec3 uniformSampleHemisphere(float u0, float u1)
 {
 	const float phi = 2.0f * PI * u0;
 	const float cosTheta = u1;
-	const float sinTheta = sqrt(1.0f - u1 * u1);
-	return vec3(cos(phi) * sinTheta, sin(phi) * sinTheta, cosTheta);
+	const float sinTheta = sqrtf(1.0f - u1 * u1);
+	return vec3(cosf(phi) * sinTheta, sinf(phi) * sinTheta, cosTheta);
 }
 
 __host__ __device__ inline float uniformSampleHemispherePdf()
@@ -49,12 +49,12 @@ __host__ __device__ inline float uniformSampleHemispherePdf()
 __host__ __device__ inline vec3 importanceSampleGGX(float u0, float u1, float a2)
 {
 	float phi = 2.0f * PI * u0;
-	float cosTheta = sqrt((1.0f - u1) / (1.0f + (a2 - 1.0f) * u1 + 1e-5f) + 1e-5f);
+	float cosTheta = sqrtf((1.0f - u1) / (1.0f + (a2 - 1.0f) * u1 + 1e-5f) + 1e-5f);
 	cosTheta = clamp(cosTheta);
-	float sinTheta = sqrt(1.0f - cosTheta * cosTheta + 1e-5f);
+	float sinTheta = sqrtf(1.0f - cosTheta * cosTheta + 1e-5f);
 
-	float sinPhi = sin(phi);
-	float cosPhi = cos(phi);
+	float sinPhi = sinf(phi);
+	float cosPhi = cosf(phi);
 	vec3 H = normalize(vec3(sinTheta * cosPhi, sinTheta * sinPhi, cosTheta));
 	return H;
 }
@@ -78,19 +78,19 @@ __host__ __device__ inline vec3 importanceSampleGGXVNDF(const vec3 &V, float u0,
 
 	// orthonormal basis (with special case if cross product is zero)
 	float lensq = Vh.x * Vh.x + Vh.y * Vh.y;
-	vec3 T1 = lensq > 0.0f ? vec3(-Vh.y, Vh.x, 0.0f) * (1.0f / sqrt(lensq)) : vec3(1.0f, 0.0f, 0.0f);
+	vec3 T1 = lensq > 0.0f ? vec3(-Vh.y, Vh.x, 0.0f) * (1.0f / sqrtf(lensq)) : vec3(1.0f, 0.0f, 0.0f);
 	vec3 T2 = cross(Vh, T1);
 	
 	// parameterization of the projected area
-	float r = sqrt(u0);
+	float r = sqrtf(u0);
 	float phi = 2.0f * PI * u1;
-	float t1 = r * cos(phi);
-	float t2 = r * sin(phi);
+	float t1 = r * cosf(phi);
+	float t2 = r * sinf(phi);
 	float s = 0.5f * (1.0f + Vh.z);
-	t2 = (1.0f - s) * sqrt(1.0f - t1 * t1) + s * t2;
+	t2 = (1.0f - s) * sqrtf(1.0f - t1 * t1) + s * t2;
 	
 	// reprojection onto hemisphere
-	vec3 Nh = t1 * T1 + t2 * T2 + sqrt(clamp(1.0f - t1 * t1 - t2 * t2)) * Vh;
+	vec3 Nh = t1 * T1 + t2 * T2 + sqrtf(clamp(1.0f - t1 * t1 - t2 * t2)) * Vh;
 	
 	// transforming the normal back to the ellipsoid configuration
 	vec3 Ne = normalize(vec3(alpha_x * Nh.x, alpha_y * Nh.y, clamp(Nh.z)));
@@ -105,7 +105,7 @@ __host__ __device__ inline float importanceSampleGGXVNDFPdf(const vec3 &H, const
 	float NdotH = H.z;//clamp(dot(N, Hw));
 	float VdotH = clamp(dot(V, H));
 	
-	float G1 = (2.0f * V.z) / (V.z + sqrt(a2 + (1.0f - a2) * (V.z * V.z)));
+	float G1 = (2.0f * V.z) / (V.z + sqrtf(a2 + (1.0f - a2) * (V.z * V.z)));
 	float Dv = (G1 * VdotH * D_GGX(NdotH, a2)) / V.z;
 
 	return Dv / (4.0f * VdotH);

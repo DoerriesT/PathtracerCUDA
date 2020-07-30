@@ -193,7 +193,7 @@ __global__ void traceKernel(
 	{
 		float u = (threadIDx + curand_uniform(&localRandState)) / float(width);
 		float v = (threadIDy + curand_uniform(&localRandState)) / float(height);
-		Ray r = camera.getRay(u, v, localRandState);
+		Ray r = camera.getRay(u, v);
 		color += getColor(r, hittableCount, world, bvhNodesCount, bvhNodes, localRandState, skyboxTextureHandle, textures);
 	}
 

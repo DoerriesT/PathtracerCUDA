@@ -149,8 +149,8 @@ __host__ __device__ inline bool Hittable::hitSphere(const Ray &r, float tMin, fl
 	t = t0 > tMin ? t0 : t1;
 	normal = normalize(r.at(t));
 
-	float theta = acos(normal.y);
-	float phi = atan2(normal.z, normal.x);
+	float theta = acosf(normal.y);
+	float phi = atan2f(normal.z, normal.x);
 	u = 1.0f - phi / (2.0f * PI);
 	v = theta / PI;
 
@@ -184,7 +184,7 @@ __host__ __device__ inline bool Hittable::hitCylinder(const Ray &r, float tMin, 
 	vec3 p = r.at(t);
 	normal = vec3(p.x, 0.0f, p.z);
 
-	float phi = atan2(normal.z, normal.x);
+	float phi = atan2f(normal.z, normal.x);
 	u = 1.0f - phi / (2.0f * PI);
 	v = 1.0f - (p.y * 0.5f + 0.5f);
 
@@ -304,7 +304,7 @@ inline __host__ __device__ bool Hittable::hitQuad(const Ray &r, float tMin, floa
 	// check that hit point is inside the extent of the quad
 	float hitPointX = oc.x + r.m_dir.x * t;
 	float hitPointZ = oc.z + r.m_dir.z * t;
-	if (abs(hitPointX) > 1.0f || abs(hitPointZ) > 1.0f)
+	if (fabsf(hitPointX) > 1.0f || fabsf(hitPointZ) > 1.0f)
 	{
 		return false;
 	}
@@ -324,7 +324,7 @@ inline __host__ __device__ bool Hittable::hitBox(const Ray &r, float tMin, float
 	}
 
 	normal = r.at(t);
-	vec3 absN = vec3(abs(normal.x), abs(normal.y), abs(normal.z));
+	vec3 absN = vec3(fabsf(normal.x), fabsf(normal.y), fabsf(normal.z));
 	if (absN.x > absN.y && absN.x > absN.z)
 	{
 		normal = vec3(normal.x > 0.0f ? 1.0f : -1.0f, 0.0f, 0.0f);
