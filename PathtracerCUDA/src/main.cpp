@@ -19,6 +19,9 @@
 #include <GLFW/glfw3.h>
 #include <cassert>
 #include "Utility.h"
+#include <nlohmann/json.hpp>
+#include <fstream>
+#include <map>
 
 struct Params
 {
@@ -176,6 +179,225 @@ bool processArgs(int argc, char *argv[], Params &params)
 	return true;
 }
 
+Camera loadScene(Pathtracer &pathtracer, const Params &params)
+{
+	std::map<std::string, uint32_t> texturePathToHandle;
+
+	auto getTextureHandle = [&](const std::string &filepath) -> uint32_t
+	{
+		if (filepath.empty())
+		{
+			return 0;
+		}
+
+		auto it = texturePathToHandle.find(filepath);
+		if (it != texturePathToHandle.end())
+		{
+			return it->second;
+		}
+		else
+		{
+			uint32_t handle = pathtracer.loadTexture(filepath.c_str());
+			texturePathToHandle[filepath] = handle;
+			return handle;
+		}
+	};
+
+	auto getString = [](const nlohmann::basic_json<> &object, const char *key, std::string &result) -> bool
+	{
+		if (object.contains(key) && object[key].is_string())
+		{
+			result = object[key].get<std::string>();
+			return true;
+		}
+		return false;
+	};
+
+	auto getFloat = [](const nlohmann::basic_json<> &object, const char *key, float &result) -> bool
+	{
+		if (object.contains(key) && object[key].is_number_float())
+		{
+			result = object[key].get<float>();
+			return true;
+		}
+		return false;
+	};
+
+	auto getVec3 = [](const nlohmann::basic_json<> &object, const char *key, vec3 &result) -> bool
+	{
+		if (object.contains(key) && object[key].is_array() && object[key].size() == 3)
+		{
+			result = vec3(object[key][0].get<float>(), object[key][1].get<float>(), object[key][2].get<float>());
+			return true;
+		}
+		return false;
+	};
+
+	auto getObject = [](const nlohmann::basic_json<> &object, const char *key, nlohmann::basic_json<> &result) -> bool
+	{
+		if (object.contains(key) && object[key].is_object())
+		{
+			result = object[key];
+			return true;
+		}
+		return false;
+	};
+
+	auto radians = [](float degree)
+	{
+		return degree * (1.0f / 180.0f) * 3.14159265358979323846f;
+	};
+
+	nlohmann::json jscene;
+	{
+		std::ifstream file(params.m_inputFilepath);
+		if (file.is_open())
+		{
+			try
+			{
+				file >> jscene;
+			}
+			catch (nlohmann::detail::parse_error ex)
+			{
+				printf(ex.what());
+				exit(EXIT_FAILURE);
+			}
+		}
+		else
+		{
+			printf("Failed to open input file: %s\n", params.m_inputFilepath);
+			exit(EXIT_FAILURE);
+		}
+	}
+
+	std::vector<CpuHittable> objects;
+
+	if (jscene.contains("objects") && jscene["objects"].is_array())
+	{
+		objects.reserve(jscene["objects"].size());
+
+		for (const auto &o : jscene["objects"])
+		{
+
+			HittableType hittableType = HittableType::SPHERE;
+			vec3 position = 0.0f;
+			vec3 rotation = 0.0f;
+			vec3 scale = 1.0f;
+
+			MaterialType materialType = MaterialType::LAMBERT;
+			vec3 baseColor = 1.0f;
+			vec3 emissive = 0.0f;
+			float roughness = 0.5f;
+			float metalness = 0.0f;
+			uint32_t textureHandle = 0;
+
+
+			// parse hittable data
+			std::string jhittableType;
+			if (getString(o, "type", jhittableType))
+			{
+				if (jhittableType == "SPHERE")
+				{
+					hittableType = HittableType::SPHERE;
+				}
+				else if (jhittableType == "CYLINDER")
+				{
+					hittableType = HittableType::CYLINDER;
+				}
+				else if (jhittableType == "DISK")
+				{
+					hittableType = HittableType::DISK;
+				}
+				else if (jhittableType == "CONE")
+				{
+					hittableType = HittableType::CONE;
+				}
+				else if (jhittableType == "PARABOLOID")
+				{
+					hittableType = HittableType::PARABOLOID;
+				}
+				else if (jhittableType == "QUAD")
+				{
+					hittableType = HittableType::QUAD;
+				}
+				else if (jhittableType == "CUBE")
+				{
+					hittableType = HittableType::CUBE;
+				}
+				else
+				{
+					printf("Failed to parse object type: %s\n", jhittableType.c_str());
+				}
+			}
+			getVec3(o, "position", position);
+			getVec3(o, "rotation", rotation);
+			getVec3(o, "scale", scale);
+
+
+			// parse material data
+			nlohmann::json m;
+			if (getObject(o, "material", m))
+			{
+				std::string jmaterialType;
+				if (getString(m, "type", jmaterialType))
+				{
+					if (jmaterialType == "LAMBERT")
+					{
+						materialType = MaterialType::LAMBERT;
+					}
+					else if (jmaterialType == "GGX")
+					{
+						materialType = MaterialType::GGX;
+					}
+					else if (jmaterialType == "LAMBERT_GGX")
+					{
+						materialType = MaterialType::LAMBERT_GGX;
+					}
+					else
+					{
+						printf("Failed to parse material type: %s\n", jmaterialType.c_str());
+					}
+				}
+
+				getVec3(m, "baseColor", baseColor);
+				getVec3(m, "emissive", emissive);
+				getFloat(m, "roughness", roughness);
+				getFloat(m, "metalness", metalness);
+				std::string texturePath;
+				if (getString(m, "texture", texturePath))
+				{
+					textureHandle = getTextureHandle(texturePath);
+				}
+			}
+
+			objects.push_back(CpuHittable(hittableType, position, vec3(radians(rotation.x), radians(rotation.y), radians(rotation.z)), scale, Material2(materialType, baseColor, emissive, roughness, metalness, textureHandle)));
+		}
+
+		pathtracer.setScene(objects.size(), objects.data());
+	}
+
+	std::string skyboxTexturePath;
+	if (getString(jscene, "skybox", skyboxTexturePath))
+	{
+		pathtracer.setSkyboxTextureHandle(getTextureHandle(skyboxTexturePath));
+	}
+
+
+	vec3 position = 0.0f;
+	vec3 look_at = vec3(0.0f, 0.0f, -1.0f);
+	float fovy = 60.0f;
+
+	nlohmann::json c;
+	if (getObject(jscene, "camera", c))
+	{
+		getVec3(c, "position", position);
+		getVec3(c, "look_at", look_at);
+		getFloat(c, "fovy", fovy);
+	}
+
+	return Camera(position, look_at, vec3(0.0f, 1.0f, 0.0f), radians(fovy), (float)params.m_width / params.m_height, 0.0f, 10.0f);
+}
+
 Camera setupScene(Pathtracer &pathtracer, const Params &params)
 {
 	uint32_t skyboxTextureHandle = pathtracer.loadTexture("skybox.hdr");
@@ -285,7 +507,7 @@ Camera setupScene(Pathtracer &pathtracer, const Params &params)
 		//hittablesCpu.push_back(CpuHittable(HittableType::CONE, CpuHittable::Payload(Cone{ vec3(0.0f, 3.0f, 0.0f), 1.0f, 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(1.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
 		//
 		//hittablesCpu.push_back(CpuHittable(HittableType::PARABOLOID, CpuHittable::Payload(Paraboloid{ vec3(3.0f, 1.0f, 3.0f), 1.0f, 3.0f }), Material(Material::Type::METAL, vec3(1.0f, 1.0f, 1.0f), 0.0f, 1.5f)));
-	
+
 		pathtracer.setScene(hittablesCpu.size(), hittablesCpu.data());
 	}
 
@@ -349,7 +571,7 @@ int main(int argc, char *argv[])
 	// create Pathtracer instance
 	Pathtracer pathtracer(params.m_width, params.m_height, pixelBufferGL);
 
-	Camera camera = setupScene(pathtracer, params);
+	Camera camera = loadScene(pathtracer, params);
 
 	if (!params.m_showWindow)
 	{

@@ -1,0 +1,145 @@
+{
+	"camera": {
+		"position": [0.0, 1.0, 3.0],
+		"look_at": [0.0, 1.0, 0.0],
+		"fovy": 60.0
+	},
+	"skybox": "skybox.hdr__",
+	"objects": [
+		{
+			"name": "right_side",
+			"type": "QUAD",
+			"position": [1.0, 1.0, 0.0],
+			"rotation": [0.0, -90.0, -90.0],
+			"scale": [1.0, 1.0, 1.0],
+			"material": {
+				"type": "LAMBERT",
+				"baseColor": [0.0, 1.0, 0.0],
+				"emissive": [0.0, 0.0, 0.0],
+				"roughness": 0.5,
+				"metalness": 0.0,
+				"texture": ""
+			}
+		},
+		{
+			"name": "left_side",
+			"type": "QUAD",
+			"position": [-1.0, 1.0, 0.0],
+			"rotation": [0.0, 90.0, 90.0],
+			"scale": [1.0, 1.0, 1.0],
+			"material": {
+				"type": "LAMBERT",
+				"baseColor": [1.0, 0.0, 0.0],
+				"emissive": [0.0, 0.0, 0.0],
+				"roughness": 0.5,
+				"metalness": 0.0,
+				"texture": ""
+			}
+		},
+		{
+			"name": "back",
+			"type": "QUAD",
+			"position": [0.0, 1.0, -1.0],
+			"rotation": [-90.0, 0.0, 0.0],
+			"scale": [1.0, 1.0, 1.0],
+			"material": {
+				"type": "LAMBERT",
+				"baseColor": [1.0, 1.0, 1.0],
+				"emissive": [0.0, 0.0, 0.0],
+				"roughness": 0.5,
+				"metalness": 0.0,
+				"texture": ""
+			}
+		},
+		{
+			"name": "top",
+			"type": "QUAD",
+			"position": [0.0, 2.0, 0.0],
+			"rotation": [0.0, 0.0, 0.0],
+			"scale": [1.0, 1.0, 1.0],
+			"material": {
+				"type": "LAMBERT",
+				"baseColor": [1.0, 1.0, 1.0],
+				"emissive": [0.0, 0.0, 0.0],
+				"roughness": 0.5,
+				"metalness": 0.0,
+				"texture": ""
+			}
+		},
+		{
+			"name": "bottom",
+			"type": "QUAD",
+			"position": [0.0, 0.0, 0.0],
+			"rotation": [0.0, 0.0, 0.0],
+			"scale": [1.0, 1.0, 1.0],
+			"material": {
+				"type": "LAMBERT",
+				"baseColor": [1.0, 1.0, 1.0],
+				"emissive": [0.0, 0.0, 0.0],
+				"roughness": 0.5,
+				"metalness": 0.0,
+				"texture": ""
+			}
+		},
+		{
+			"name": "light",
+			"type": "QUAD",
+			"position": [0.0, 1.9999, 0.0],
+			"rotation": [0.0, 0.0, 0.0],
+			"scale": [0.3, 0.3, 0.3],
+			"material": {
+				"type": "LAMBERT",
+				"baseColor": [1.0, 1.0, 1.0],
+				"emissive": [10.0, 10.0, 10.0],
+				"roughness": 0.5,
+				"metalness": 0.0,
+				"texture": ""
+			}
+		},
+		{
+			"name": "big_box",
+			"type": "CUBE",
+			"position": [-0.5, 0.75, -0.5],
+			"rotation": [0.0, 40.0, 0.0],
+			"scale": [0.25, 0.75, 0.25],
+			"material": {
+				"type": "LAMBERT_GGX",
+				"baseColor": [0.0, 0.0, 1.0],
+				"emissive": [0.0, 0.0, 0.0],
+				"roughness": 0.1,
+				"metalness": 0.0,
+				"texture": ""
+			}
+		},
+		{
+			"name": "small_box",
+			"type": "CUBE",
+			"position": [0.5, 0.25, 0.5],
+			"rotation": [0.0, -30.0, 0.0],
+			"scale": [0.25, 0.25, 0.25],
+			"material": {
+				"type": "LAMBERT_GGX",
+				"baseColor": [1.0, 1.0, 1.0],
+				"emissive": [0.0, 0.0, 0.0],
+				"roughness": 0.1,
+				"metalness": 0.0,
+				"texture": ""
+			}
+		},
+		{
+			"name": "earth",
+			"type": "SPHERE",
+			"position": [0.0, 0.2, 0.0],
+			"rotation": [0.0, 0.0, 0.0],
+			"scale": [0.2, 0.2, 0.2],
+			"material": {
+				"type": "LAMBERT_GGX",
+				"baseColor": [1.0, 1.0, 1.0],
+				"emissive": [0.0, 0.0, 0.0],
+				"roughness": 0.1,
+				"metalness": 0.0,
+				"texture": "earth.png"
+			}
+		}
+	]
+}

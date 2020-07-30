@@ -235,7 +235,11 @@ uint32_t Pathtracer::loadTexture(const char *path)
 	int height;
 	int channelCount;
 	void *data = hdrTexture ? (void *)stbi_loadf(path, &width, &height, &channelCount, 4) : (void *)stbi_load(path, &width, &height, &channelCount, 4);
-	assert(data);
+	
+	if (!data)
+	{
+		return 0;
+	}
 
 	// allocate device memory for texture
 	int channelSize = hdrTexture ? 32 : 8;
