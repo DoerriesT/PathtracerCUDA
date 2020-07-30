@@ -95,6 +95,9 @@
     <ClInclude Include="src\MonteCarlo.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="src\kernels\tonemap.h">
+      <Filter>src\kernels</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="src\kernels\initRandState.cu">
@@ -105,6 +108,9 @@
     </CudaCompile>
     <CudaCompile Include="src\Pathtracer.cpp">
       <Filter>src</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\kernels\tonemap.cu">
+      <Filter>src\kernels</Filter>
     </CudaCompile>
   </ItemGroup>
   <ItemGroup>

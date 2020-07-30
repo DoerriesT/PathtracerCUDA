@@ -52,7 +52,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>GLFW_INCLUDE_NONE;WIN32;WIN64;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -61,6 +61,7 @@
     </Link>
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
+      <Defines>GLFW_INCLUDE_NONE;%(Defines)</Defines>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -69,7 +70,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>GLFW_INCLUDE_NONE;WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -81,12 +82,14 @@
     <CudaCompile>
       <TargetMachinePlatform>64</TargetMachinePlatform>
       <PtxAsOptionV>true</PtxAsOptionV>
+      <Defines>GLFW_INCLUDE_NONE;%(Defines)</Defines>
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\BVH.cpp" />
     <ClCompile Include="src\glad.c" />
     <CudaCompile Include="src\kernels\initRandState.cu" />
+    <CudaCompile Include="src\kernels\tonemap.cu" />
     <CudaCompile Include="src\kernels\trace.cu" />
     <ClCompile Include="src\Hittable.cpp" />
     <ClCompile Include="src\main.cpp" />
@@ -107,6 +110,7 @@
     <ClInclude Include="src\IInputListener.h" />
     <ClInclude Include="src\InputTokens.h" />
     <ClInclude Include="src\kernels\initRandState.h" />
+    <ClInclude Include="src\kernels\tonemap.h" />
     <ClInclude Include="src\kernels\trace.h" />
     <ClInclude Include="src\Material.h" />
     <ClInclude Include="src\MonteCarlo.h" />

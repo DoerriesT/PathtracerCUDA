@@ -9,13 +9,14 @@ struct cudaGraphicsResource;
 class Pathtracer
 {
 public:
-	explicit Pathtracer(uint32_t width, uint32_t height);
+	explicit Pathtracer(uint32_t width, uint32_t height, unsigned int openglPixelBuffer = 0);
 	~Pathtracer();
 	void setBVH(uint32_t nodeCount, const BVHNode *nodes, uint32_t hittableCount, const Hittable *hittables);
-	void render(const Camera &camera, bool ignoreHistory);
+	void render(const Camera &camera, uint32_t spp, bool ignoreHistory);
 	float getTiming() const;
 	uint32_t loadTexture(const char *path);
 	void setSkyboxTextureHandle(uint32_t handle);
+	float *getImageData();
 
 private:
 	uint32_t m_width;
@@ -28,7 +29,6 @@ private:
 	uint32_t m_skyboxTextureHandle = 0;
 
 	// gpu resources
-	unsigned int m_pixelBufferGL = 0;
 	cudaGraphicsResource *m_pixelBufferCuda = nullptr;
 	float4 *m_gpuAccumBuffer = nullptr;
 	curandState *m_gpuRandState = nullptr;

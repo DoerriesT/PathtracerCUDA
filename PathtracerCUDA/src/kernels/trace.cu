@@ -162,12 +162,12 @@ __device__ vec3 getColor(const Ray &r, uint32_t hittableCount, Hittable *world, 
 }
 
 __global__ void traceKernel(
-	uchar4 *resultBuffer,
 	float4 *accumBuffer,
 	bool ignoreHistory,
-	uint32_t frame,
+	uint32_t accumulatedSampleCount,
 	uint32_t width,
 	uint32_t height,
+	uint32_t spp,
 	uint32_t hittableCount,
 	Hittable *world,
 	uint32_t bvhNodesCount,
@@ -186,29 +186,18 @@ __global__ void traceKernel(
 	}
 
 	const uint32_t dstIdx = threadIDx + threadIDy * width;
-
-	float4 inputColor4 = accumBuffer[dstIdx];
-	vec3 inputColor(inputColor4.x, inputColor4.y, inputColor4.z);
-
 	curandState &localRandState = randState[dstIdx];
 
-	float u = (threadIDx + curand_uniform(&localRandState)) / float(width);
-	float v = (threadIDy + curand_uniform(&localRandState)) / float(height);
-	Ray r = camera.getRay(u, v, localRandState);
-	vec3 color = getColor(r, hittableCount, world, bvhNodesCount, bvhNodes, localRandState, skyboxTextureHandle, textures);
+	vec3 color = 0.0f;
+	for (uint32_t i = 0; i < spp; ++i)
+	{
+		float u = (threadIDx + curand_uniform(&localRandState)) / float(width);
+		float v = (threadIDy + curand_uniform(&localRandState)) / float(height);
+		Ray r = camera.getRay(u, v, localRandState);
+		color += getColor(r, hittableCount, world, bvhNodesCount, bvhNodes, localRandState, skyboxTextureHandle, textures);
+	}
 
-	color = ignoreHistory ? color : color + inputColor;
-
-	vec3 resultColor = color / float(frame + 1.0f);
-
-	// reinhard tonemapping
-	resultColor = resultColor / (resultColor + 1.0f);// saturate(resultColor);
-
-	// gamma correction
-	resultColor.r = pow(resultColor.r, 1.0f / 2.2f);
-	resultColor.g = pow(resultColor.g, 1.0f / 2.2f);
-	resultColor.b = pow(resultColor.b, 1.0f / 2.2f);
+	color = ignoreHistory ? color : (color + vec3(accumBuffer[dstIdx].x, accumBuffer[dstIdx].y, accumBuffer[dstIdx].z));
 
 	accumBuffer[dstIdx] = { color.r, color.g, color.b, 1.0f };
-	resultBuffer[dstIdx] = { (unsigned char)(resultColor.x * 255.0f), (unsigned char)(resultColor.y * 255.0f) , (unsigned char)(resultColor.z * 255.0f), 255 };
 }

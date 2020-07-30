@@ -9,6 +9,7 @@
 #include <curand_kernel.h>
 #include "kernels/initRandState.h"
 #include "kernels/trace.h"
+#include "kernels/tonemap.h"
 #include "stb_image.h"
 
 #define MAX_TEXTURE_COUNT 64
@@ -26,7 +27,7 @@ static void check_cuda(cudaError_t result, char const *const func, const char *c
 	}
 }
 
-Pathtracer::Pathtracer(uint32_t width, uint32_t height)
+Pathtracer::Pathtracer(uint32_t width, uint32_t height, unsigned int openglPixelBuffer)
 	:m_width(width),
 	m_height(height),
 	m_hittableCount(),
@@ -36,29 +37,15 @@ Pathtracer::Pathtracer(uint32_t width, uint32_t height)
 	m_textures(new cudaTextureObject_t[MAX_TEXTURE_COUNT]),
 	m_textureMemory(new cudaArray *[MAX_TEXTURE_COUNT])
 {
-	// init opengl
-	{
-		if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
-		{
-			Utility::fatalExit("Failed to initialize GLAD!", EXIT_FAILURE);
-		}
-
-		glViewport(0, 0, m_width, m_height);
-		assert(glGetError() == GL_NO_ERROR);
-		glGenBuffers(1, &m_pixelBufferGL);
-		assert(glGetError() == GL_NO_ERROR);
-		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_pixelBufferGL);
-		glBufferData(GL_PIXEL_UNPACK_BUFFER, m_width * m_height * 4, nullptr, GL_STREAM_DRAW);
-		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-
-		assert(glGetError() == GL_NO_ERROR);
-	}
-
 	// init cuda
 	{
 		checkCudaErrors(cudaSetDevice(0));
-		// register with cuda
-		checkCudaErrors(cudaGraphicsGLRegisterBuffer(&m_pixelBufferCuda, m_pixelBufferGL, cudaGraphicsMapFlagsWriteDiscard));
+
+		// optionally register an opengl pixel buffer with cuda
+		if (openglPixelBuffer)
+		{
+			checkCudaErrors(cudaGraphicsGLRegisterBuffer(&m_pixelBufferCuda, openglPixelBuffer, cudaGraphicsMapFlagsWriteDiscard));
+		}
 
 		// alloc memory for prng state
 		checkCudaErrors(cudaMalloc((void **)&m_gpuRandState, m_width * m_height * sizeof(curandState)));
@@ -103,10 +90,6 @@ Pathtracer::~Pathtracer()
 	checkCudaErrors(cudaEventDestroy(m_startEvent));
 	checkCudaErrors(cudaEventDestroy(m_stopEvent));
 
-	// delete pixel buffer object
-	glDeleteBuffers(1, &m_pixelBufferGL);
-	assert(glGetError() == GL_NO_ERROR);
-
 	// free textures
 	for (size_t i = 0; i < m_textureCount; ++i)
 	{
@@ -146,7 +129,7 @@ void Pathtracer::setBVH(uint32_t nodeCount, const BVHNode *nodes, uint32_t hitta
 	m_hittableCount = hittableCount;
 }
 
-void Pathtracer::render(const Camera &camera, bool ignoreHistory)
+void Pathtracer::render(const Camera &camera, uint32_t spp, bool ignoreHistory)
 {
 	if (ignoreHistory)
 	{
@@ -154,26 +137,21 @@ void Pathtracer::render(const Camera &camera, bool ignoreHistory)
 	}
 	m_timing = 0;
 
-	uchar4 *deviceMem;
-	size_t numBytes;
-	checkCudaErrors(cudaGraphicsMapResources(1, &m_pixelBufferCuda));
-	checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&deviceMem, &numBytes, m_pixelBufferCuda));
-
 	// start tracing
 	checkCudaErrors(cudaEventRecord(m_startEvent));
 
 	// kernels expect a BVH, so skip tracing if there is none
-	if (m_nodeCount >= 1 && m_hittableCount >= 1)
+	if (m_nodeCount >= 1 && m_hittableCount >= 1 && spp > 0)
 	{
 		dim3 threads(8, 8, 1);
 		dim3 blocks((m_width + 7) / 8, (m_height + 7) / 8, 1);
 		traceKernel << <blocks, threads >> > (
-			deviceMem,
 			m_gpuAccumBuffer,
 			ignoreHistory,
 			m_accumulatedFrames,
 			m_width,
 			m_height,
+			spp,
 			m_hittableCount,
 			m_gpuHittables,
 			m_nodeCount,
@@ -193,17 +171,27 @@ void Pathtracer::render(const Camera &camera, bool ignoreHistory)
 	checkCudaErrors(cudaEventSynchronize(m_stopEvent));
 
 	checkCudaErrors(cudaEventElapsedTime(&m_timing, m_startEvent, m_stopEvent));
-	checkCudaErrors(cudaGraphicsUnmapResources(1, &m_pixelBufferCuda));
 
-	// copy to backbuffer
-	glClearColor(1.0f, 0.0f, 0.0f, 1.0f);
-	glClear(GL_COLOR_BUFFER_BIT);
-	glRasterPos2i(-1, -1);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, m_pixelBufferGL);
-	glDrawPixels(m_width, m_height, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
-	assert(glGetError() == GL_NO_ERROR);
+	// copy tonemapped image to opengl pixel buffer if available
+	if (m_pixelBufferCuda && m_nodeCount >= 1 && m_hittableCount >= 1 && spp > 0)
+	{
+		// map pixel buffer
+		uchar4 *deviceMem = nullptr;
+		size_t numBytes;
+		checkCudaErrors(cudaGraphicsMapResources(1, &m_pixelBufferCuda));
+		checkCudaErrors(cudaGraphicsResourceGetMappedPointer((void **)&deviceMem, &numBytes, m_pixelBufferCuda));
+
+		// tonemap
+		dim3 threads(8, 8, 1);
+		dim3 blocks((m_width + 7) / 8, (m_height + 7) / 8, 1);
+		tonemap << <blocks, threads >> > (deviceMem, m_gpuAccumBuffer, m_width, m_height, m_accumulatedFrames + 1);
+
+		checkCudaErrors(cudaDeviceSynchronize());
+
+		// unmap pixel buffer
+		checkCudaErrors(cudaGraphicsUnmapResources(1, &m_pixelBufferCuda));
+	}
 
 	++m_accumulatedFrames;
 }
@@ -268,4 +256,10 @@ uint32_t Pathtracer::loadTexture(const char *path)
 void Pathtracer::setSkyboxTextureHandle(uint32_t handle)
 {
 	m_skyboxTextureHandle = handle;
+}
+
+float *Pathtracer::getImageData()
+{
+	checkCudaErrors(cudaDeviceSynchronize());
+	return nullptr;
 }

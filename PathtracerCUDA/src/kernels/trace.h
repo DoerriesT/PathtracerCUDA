@@ -8,12 +8,12 @@ class Hittable;
 struct BVHNode;
 
 __global__ void traceKernel(
-	uchar4 *resultBuffer,
 	float4 *accumBuffer,
 	bool ignoreHistory,
-	uint32_t frame,
+	uint32_t accumulatedSampleCount,
 	uint32_t width,
 	uint32_t height,
+	uint32_t spp,
 	uint32_t hittableCount,
 	Hittable *world,
 	uint32_t bvhNodesCount,
