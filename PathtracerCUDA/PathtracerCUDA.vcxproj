@@ -119,6 +119,7 @@
     <ClInclude Include="src\util\Window.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="src\pathtracer\AABB.inl" />
     <None Include="src\pathtracer\Camera.inl" />
     <None Include="src\pathtracer\Hittable.inl" />
     <None Include="src\pathtracer\Material.inl" />

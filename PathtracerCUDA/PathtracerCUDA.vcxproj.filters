@@ -118,6 +118,9 @@
     <None Include="src\pathtracer\vec3.inl">
       <Filter>src\pathtracer</Filter>
     </None>
+    <None Include="src\pathtracer\AABB.inl">
+      <Filter>src\pathtracer</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="src\pathtracer\kernels\initRandState.cu">

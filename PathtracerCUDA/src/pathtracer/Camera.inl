@@ -21,9 +21,9 @@ __host__ __device__ inline Camera::Camera(
 	update();
 }
 
-__device__ inline Ray Camera::getRay(float s, float t)
+__host__ __device__ inline Ray Camera::getRay(float s, float t)
 {
-	return Ray(m_origin, normalize(m_lowerLeftCorner + s * m_horizontal + t * m_vertical - m_origin));
+	return Ray(m_origin, normalize(m_lowerLeftCorner + s * m_horizontal + t * m_vertical));
 }
 
 __host__ __device__ inline void Camera::rotate(float pitch, float yaw, float roll)
@@ -55,10 +55,7 @@ __host__ __device__ inline void Camera::update()
 	float halfHeight = m_tanHalfFovy;
 	float halfWidth = m_aspectRatio * halfHeight;
 
-	m_lowerLeftCorner = m_origin
-		- halfWidth * m_right
-		- halfHeight * m_up
-		- m_backward;
+	m_lowerLeftCorner = -halfWidth * m_right + -halfHeight * m_up - m_backward;
 	m_horizontal = 2.0f * halfWidth * m_right;
 	m_vertical = 2.0f * halfHeight * m_up;
 }
