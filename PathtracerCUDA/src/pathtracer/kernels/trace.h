@@ -2,7 +2,7 @@
 #include "cuda_runtime.h"
 #include <curand_kernel.h>
 #include <cstdint>
-#include "Camera.h"
+#include "./../Camera.h"
 
 class Hittable;
 struct BVHNode;

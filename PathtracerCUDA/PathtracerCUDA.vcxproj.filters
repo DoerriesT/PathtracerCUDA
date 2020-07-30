@@ -4,27 +4,21 @@
     <Filter Include="src">
       <UniqueIdentifier>{5e04fc0a-89a3-4ee6-a902-653df04a762c}</UniqueIdentifier>
     </Filter>
-    <Filter Include="src\kernels">
-      <UniqueIdentifier>{210b7aed-a7b8-41fa-81b0-9000cf2c6855}</UniqueIdentifier>
+    <Filter Include="src\pathtracer">
+      <UniqueIdentifier>{f09d810b-bc31-4b60-baef-ef9a2ff5d138}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\util">
+      <UniqueIdentifier>{e5886afe-e8cb-4ba8-851d-7c32d5e448a4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="src\pathtracer\kernels">
+      <UniqueIdentifier>{29be7fa3-6b49-489c-8750-6c3ea577f7d2}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\Window.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\UserInput.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
     <ClCompile Include="src\glad.c">
       <Filter>src</Filter>
     </ClCompile>
-    <ClCompile Include="src\BVH.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
     <ClCompile Include="src\main.cpp">
-      <Filter>src</Filter>
-    </ClCompile>
-    <ClCompile Include="src\Hittable.cpp">
       <Filter>src</Filter>
     </ClCompile>
     <ClCompile Include="src\stb_image.cpp">
@@ -33,95 +27,107 @@
     <ClCompile Include="src\stb_image_write.cpp">
       <Filter>src</Filter>
     </ClCompile>
+    <ClCompile Include="src\util\UserInput.cpp">
+      <Filter>src\util</Filter>
+    </ClCompile>
+    <ClCompile Include="src\util\Window.cpp">
+      <Filter>src\util</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pathtracer\BVH.cpp">
+      <Filter>src\pathtracer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pathtracer\Hittable.cpp">
+      <Filter>src\pathtracer</Filter>
+    </ClCompile>
+    <ClCompile Include="src\pathtracer\Pathtracer.cpp">
+      <Filter>src\pathtracer</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\Window.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\IInputListener.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\InputTokens.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\UserInput.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\vec3.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Ray.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Hittable.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Camera.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\AABB.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\BVH.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\brdf.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\kernels\initRandState.h">
-      <Filter>src\kernels</Filter>
-    </ClInclude>
-    <ClInclude Include="src\kernels\trace.h">
-      <Filter>src\kernels</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Pathtracer.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\HitRecord.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\Material.h">
-      <Filter>src</Filter>
-    </ClInclude>
     <ClInclude Include="src\stb_image.h">
       <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\MonteCarlo.h">
-      <Filter>src</Filter>
-    </ClInclude>
-    <ClInclude Include="src\kernels\tonemap.h">
-      <Filter>src\kernels</Filter>
     </ClInclude>
     <ClInclude Include="src\stb_image_write.h">
       <Filter>src</Filter>
     </ClInclude>
+    <ClInclude Include="src\util\IInputListener.h">
+      <Filter>src\util</Filter>
+    </ClInclude>
+    <ClInclude Include="src\util\InputTokens.h">
+      <Filter>src\util</Filter>
+    </ClInclude>
+    <ClInclude Include="src\util\UserInput.h">
+      <Filter>src\util</Filter>
+    </ClInclude>
+    <ClInclude Include="src\util\Window.h">
+      <Filter>src\util</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pathtracer\AABB.h">
+      <Filter>src\pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pathtracer\brdf.h">
+      <Filter>src\pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pathtracer\BVH.h">
+      <Filter>src\pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pathtracer\Camera.h">
+      <Filter>src\pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pathtracer\HitRecord.h">
+      <Filter>src\pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pathtracer\Hittable.h">
+      <Filter>src\pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pathtracer\Material.h">
+      <Filter>src\pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pathtracer\MonteCarlo.h">
+      <Filter>src\pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pathtracer\Pathtracer.h">
+      <Filter>src\pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pathtracer\Ray.h">
+      <Filter>src\pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pathtracer\vec3.h">
+      <Filter>src\pathtracer</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pathtracer\kernels\initRandState.h">
+      <Filter>src\pathtracer\kernels</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pathtracer\kernels\tonemap.h">
+      <Filter>src\pathtracer\kernels</Filter>
+    </ClInclude>
+    <ClInclude Include="src\pathtracer\kernels\trace.h">
+      <Filter>src\pathtracer\kernels</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <CudaCompile Include="src\kernels\initRandState.cu">
-      <Filter>src\kernels</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\kernels\trace.cu">
-      <Filter>src\kernels</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\Pathtracer.cpp">
-      <Filter>src</Filter>
-    </CudaCompile>
-    <CudaCompile Include="src\kernels\tonemap.cu">
-      <Filter>src\kernels</Filter>
-    </CudaCompile>
+    <None Include="src\pathtracer\Camera.inl">
+      <Filter>src\pathtracer</Filter>
+    </None>
+    <None Include="src\pathtracer\Hittable.inl">
+      <Filter>src\pathtracer</Filter>
+    </None>
+    <None Include="src\pathtracer\Material.inl">
+      <Filter>src\pathtracer</Filter>
+    </None>
+    <None Include="src\pathtracer\vec3.inl">
+      <Filter>src\pathtracer</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
-    <None Include="src\Camera.inl">
-      <Filter>src</Filter>
-    </None>
-    <None Include="src\Hittable.inl">
-      <Filter>src</Filter>
-    </None>
-    <None Include="src\Material.inl">
-      <Filter>src</Filter>
-    </None>
-    <None Include="src\vec3.inl">
-      <Filter>src</Filter>
-    </None>
+    <CudaCompile Include="src\pathtracer\kernels\initRandState.cu">
+      <Filter>src\pathtracer\kernels</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\pathtracer\kernels\tonemap.cu">
+      <Filter>src\pathtracer\kernels</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\pathtracer\kernels\trace.cu">
+      <Filter>src\pathtracer\kernels</Filter>
+    </CudaCompile>
   </ItemGroup>
 </Project>

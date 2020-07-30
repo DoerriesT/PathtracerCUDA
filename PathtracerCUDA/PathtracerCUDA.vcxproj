@@ -86,46 +86,48 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="src\BVH.cpp" />
     <ClCompile Include="src\glad.c" />
-    <CudaCompile Include="src\kernels\initRandState.cu" />
-    <CudaCompile Include="src\kernels\tonemap.cu" />
-    <CudaCompile Include="src\kernels\trace.cu" />
-    <ClCompile Include="src\Hittable.cpp" />
+    <ClCompile Include="src\pathtracer\BVH.cpp" />
+    <ClCompile Include="src\pathtracer\Hittable.cpp" />
+    <CudaCompile Include="src\pathtracer\Pathtracer.cpp" />
+    <ClCompile Include="src\util\UserInput.cpp" />
+    <ClCompile Include="src\util\Window.cpp" />
     <ClCompile Include="src\main.cpp" />
-    <CudaCompile Include="src\Pathtracer.cpp" />
     <ClCompile Include="src\stb_image.cpp" />
     <ClCompile Include="src\stb_image_write.cpp" />
-    <ClCompile Include="src\UserInput.cpp" />
-    <ClCompile Include="src\Window.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\AABB.h" />
-    <ClInclude Include="src\brdf.h" />
-    <ClInclude Include="src\BVH.h" />
-    <ClInclude Include="src\Camera.h" />
-    <ClInclude Include="src\HitRecord.h" />
-    <ClInclude Include="src\Hittable.h" />
-    <ClInclude Include="src\IInputListener.h" />
-    <ClInclude Include="src\InputTokens.h" />
-    <ClInclude Include="src\kernels\initRandState.h" />
-    <ClInclude Include="src\kernels\tonemap.h" />
-    <ClInclude Include="src\kernels\trace.h" />
-    <ClInclude Include="src\Material.h" />
-    <ClInclude Include="src\MonteCarlo.h" />
-    <ClInclude Include="src\Pathtracer.h" />
-    <ClInclude Include="src\Ray.h" />
+    <ClInclude Include="src\pathtracer\AABB.h" />
+    <ClInclude Include="src\pathtracer\brdf.h" />
+    <ClInclude Include="src\pathtracer\BVH.h" />
+    <ClInclude Include="src\pathtracer\Camera.h" />
+    <ClInclude Include="src\pathtracer\HitRecord.h" />
+    <ClInclude Include="src\pathtracer\Hittable.h" />
+    <ClInclude Include="src\pathtracer\kernels\initRandState.h" />
+    <ClInclude Include="src\pathtracer\kernels\tonemap.h" />
+    <ClInclude Include="src\pathtracer\kernels\trace.h" />
+    <ClInclude Include="src\pathtracer\Material.h" />
+    <ClInclude Include="src\pathtracer\MonteCarlo.h" />
+    <ClInclude Include="src\pathtracer\Pathtracer.h" />
+    <ClInclude Include="src\pathtracer\Ray.h" />
+    <ClInclude Include="src\pathtracer\vec3.h" />
     <ClInclude Include="src\stb_image.h" />
     <ClInclude Include="src\stb_image_write.h" />
-    <ClInclude Include="src\UserInput.h" />
-    <ClInclude Include="src\vec3.h" />
-    <ClInclude Include="src\Window.h" />
+    <ClInclude Include="src\util\IInputListener.h" />
+    <ClInclude Include="src\util\InputTokens.h" />
+    <ClInclude Include="src\util\UserInput.h" />
+    <ClInclude Include="src\util\Window.h" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="src\Camera.inl" />
-    <None Include="src\Hittable.inl" />
-    <None Include="src\Material.inl" />
-    <None Include="src\vec3.inl" />
+    <None Include="src\pathtracer\Camera.inl" />
+    <None Include="src\pathtracer\Hittable.inl" />
+    <None Include="src\pathtracer\Material.inl" />
+    <None Include="src\pathtracer\vec3.inl" />
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="src\pathtracer\kernels\initRandState.cu" />
+    <CudaCompile Include="src\pathtracer\kernels\tonemap.cu" />
+    <CudaCompile Include="src\pathtracer\kernels\trace.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

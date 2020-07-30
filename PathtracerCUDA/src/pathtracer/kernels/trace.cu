@@ -1,7 +1,7 @@
 #include "trace.h"
-#include "BVH.h"
-#include "Material.h"
-#include "Hittable.h"
+#include "./../BVH.h"
+#include "./../Material.h"
+#include "./../Hittable.h"
 
 
 __device__ bool hitList(uint32_t hittableCount, Hittable *world, const Ray &r, float t_min, float t_max, HitRecord &rec)

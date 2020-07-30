@@ -1,5 +1,5 @@
 #include "tonemap.h"
-#include "vec3.h"
+#include "./../vec3.h"
 
 __global__ void tonemap(uchar4 *resultBuffer, float4 *accumBuffer, uint32_t width, uint32_t height, uint32_t accumulatedSampleCount)
 {
