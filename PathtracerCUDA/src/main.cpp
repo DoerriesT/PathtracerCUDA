@@ -22,6 +22,7 @@
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <map>
+#include "stb_image_write.h"
 
 struct Params
 {
@@ -32,6 +33,7 @@ struct Params
 	const char *m_outputFilepath = nullptr;
 	bool m_showWindow = false;
 	bool m_enableControls = false;
+	bool m_outputHdr = false;
 };
 
 bool processArgs(int argc, char *argv[], Params &params)
@@ -43,6 +45,7 @@ bool processArgs(int argc, char *argv[], Params &params)
 	constexpr const char *windowOption = "-window";
 	constexpr const char *controlsOption = "-enable_controls";
 	constexpr const char *outputOption = "-o";
+	constexpr const char *outputHdrOption = "-ohdr";
 
 	params = {};
 
@@ -126,6 +129,12 @@ bool processArgs(int argc, char *argv[], Params &params)
 			++i;
 			continue;
 		}
+		else if (strcmp(argv[i], outputHdrOption) == 0)
+		{
+			params.m_outputHdr = true;
+			++i;
+			continue;
+		}
 		else if (strcmp(argv[i], outputOption) == 0)
 		{
 			if (i + 1 < argc)
@@ -166,9 +175,10 @@ bool processArgs(int argc, char *argv[], Params &params)
 		printf("%-30s Set number of samples per pixel\n", sppOption);
 		printf("%-30s Shows a window and displays progressive rendering results\n", windowOption);
 		printf("%-30s Enables camera controls (WASD to move, RMB+Mouse to rotate). "
-			"If this option is enabled, the result image can only be saved manually by pressing the PRINT key. "
-			"The image is then saves as a png to the filepath specified by %s. %s must be set for this option\n", controlsOption, outputOption, windowOption);
+			"If this option is enabled, the result image can only be saved manually by pressing the P key. "
+			"The image is then saved to the filepath specified by %s. %s must be set for this option\n", controlsOption, outputOption, windowOption);
 		printf("%-30s Set filepath of output image\n", outputOption);
+		printf("%-30s Save image as HDR instead of PNG\n", outputHdrOption);
 
 		return false;
 	}
@@ -514,6 +524,27 @@ Camera setupScene(Pathtracer &pathtracer, const Params &params)
 	return camera;
 }
 
+void saveImage(const Params &params, Pathtracer &pathtracer)
+{
+	printf("Writing result to %s\n", params.m_outputFilepath);
+
+	stbi_flip_vertically_on_write(true);
+	if (params.m_outputHdr)
+	{
+		if (!stbi_write_hdr(params.m_outputFilepath, params.m_width, params.m_height, 4, pathtracer.getHDRImageData()))
+		{
+			printf("Failed to write file!\n");
+		}
+	}
+	else
+	{
+		if (!stbi_write_png(params.m_outputFilepath, params.m_width, params.m_height, 4, pathtracer.getImageData(), params.m_width * 4))
+		{
+			printf("Failed to write file!\n");
+		}
+	}
+}
+
 int main(int argc, char *argv[])
 {
 	// fill parameter struct with command line arguments.
@@ -530,6 +561,7 @@ int main(int argc, char *argv[])
 	printf("Samples per Pixel: %d\n", (int)params.m_spp);
 	printf("Window: %d\n", (int)params.m_showWindow);
 	printf("Controls: %d\n", (int)params.m_enableControls);
+	printf("Output HDR: %d\n", (int)params.m_outputHdr);
 	printf("Output Filepath: %s\n", params.m_outputFilepath ? params.m_outputFilepath : "");
 	printf("Input Filepath: %s\n", params.m_inputFilepath);
 
@@ -575,7 +607,7 @@ int main(int argc, char *argv[])
 
 	if (!params.m_showWindow)
 	{
-		constexpr uint32_t samplesPerIteration = 1;
+		constexpr uint32_t samplesPerIteration = 8;
 		float totalGpuTime = 0.0f;
 
 		for (uint32_t i = 0; i < params.m_spp; i += samplesPerIteration)
@@ -592,6 +624,12 @@ int main(int argc, char *argv[])
 		}
 
 		printf("Finished accumulating %d samples in %f ms GPU time\n", (int)params.m_spp, totalGpuTime);
+		
+		// writing to file is optional
+		if (params.m_outputFilepath)
+		{
+			saveImage(params, pathtracer);
+		}
 	}
 	else
 	{
@@ -599,6 +637,8 @@ int main(int argc, char *argv[])
 		double timeDelta = 0.0;
 		uint32_t accumulatedSamples = 0;
 		bool grabbedMouse = false;
+		bool savedFileAutomatically = false;
+		float totalGpuTime = 0.0f;
 
 		while (!window->shouldClose())
 		{
@@ -608,6 +648,7 @@ int main(int argc, char *argv[])
 			window->pollEvents();
 
 			bool resetAccumulation = false;
+			bool saveToFile = false;
 
 			// handle input
 			if (userInput)
@@ -674,6 +715,11 @@ int main(int argc, char *argv[])
 					camera.translate(cameraTranslation[0], cameraTranslation[1], cameraTranslation[2]);
 					resetAccumulation = true;
 				}
+
+				if (userInput->isKeyPressed(InputKey::P, true))
+				{
+					saveToFile = true;
+				}
 			}
 
 
@@ -682,6 +728,12 @@ int main(int argc, char *argv[])
 			{
 				pathtracer.render(camera, 1, resetAccumulation);
 				++accumulatedSamples;
+
+				totalGpuTime += pathtracer.getTiming();
+				if (accumulatedSamples == params.m_spp)
+				{
+					printf("Finished accumulating %d samples in %f ms GPU time\n", (int)params.m_spp, totalGpuTime);
+				}
 			}
 
 			// copy to backbuffer
@@ -699,6 +751,15 @@ int main(int argc, char *argv[])
 
 			window->present();
 			window->setTitle("Accumulated Samples: " + std::to_string(accumulatedSamples) + " Frametime: " + std::to_string(pathtracer.getTiming()) + " ms");
+
+
+			// writing to file is optional
+			if ((saveToFile || (accumulatedSamples == params.m_spp && !params.m_enableControls && !savedFileAutomatically)) && params.m_outputFilepath)
+			{
+				saveToFile = false;
+				savedFileAutomatically = true;
+				saveImage(params, pathtracer);
+			}
 		}
 
 		// delete pixel buffer object

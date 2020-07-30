@@ -59,6 +59,9 @@ Pathtracer::Pathtracer(uint32_t width, uint32_t height, unsigned int openglPixel
 
 		// alloc memory for accum buffer
 		checkCudaErrors(cudaMalloc((void **)&m_gpuAccumBuffer, m_width * m_height * sizeof(float4)));
+		m_cpuAccumBuffer = new float[m_width * m_height * 4];
+
+		m_cpuResultBuffer = new char[m_width * m_height * 4];
 
 		checkCudaErrors(cudaEventCreate(&m_startEvent));
 		checkCudaErrors(cudaEventCreate(&m_stopEvent));
@@ -99,6 +102,8 @@ Pathtracer::~Pathtracer()
 
 	checkCudaErrors(cudaFree(m_gpuTextures));
 
+	delete[] m_cpuAccumBuffer;
+	delete[] m_cpuResultBuffer;
 	delete[] m_textures;
 	delete[] m_textureMemory;
 }
@@ -280,8 +285,44 @@ void Pathtracer::setSkyboxTextureHandle(uint32_t handle)
 	m_skyboxTextureHandle = handle;
 }
 
-float *Pathtracer::getImageData()
+float *Pathtracer::getHDRImageData()
 {
 	checkCudaErrors(cudaDeviceSynchronize());
-	return nullptr;
+
+	// copy back to cpu
+	checkCudaErrors(cudaMemcpy(m_cpuAccumBuffer, m_gpuAccumBuffer, m_width * m_height * sizeof(float4), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+
+	// divide by number of accumulated samples
+	float invSampleCount = 1.0f / fmaxf((float)m_accumulatedFrames, 1.0f);
+
+	for (size_t i = 0; i < (m_width * m_height * 4); ++i)
+	{
+		m_cpuAccumBuffer[i] *= invSampleCount;
+	}
+
+	return m_cpuAccumBuffer;
+}
+
+char *Pathtracer::getImageData()
+{
+	checkCudaErrors(cudaDeviceSynchronize());
+
+	// alloc memory for gpu result buffer
+	uchar4 *gpuResultBuffer = nullptr;
+	checkCudaErrors(cudaMalloc((void **)&gpuResultBuffer, m_width * m_height * sizeof(uchar4)));
+
+	// tonemap
+	dim3 threads(8, 8, 1);
+	dim3 blocks((m_width + 7) / 8, (m_height + 7) / 8, 1);
+	tonemap << <blocks, threads >> > (gpuResultBuffer, m_gpuAccumBuffer, m_width, m_height, m_accumulatedFrames);
+
+	checkCudaErrors(cudaDeviceSynchronize());
+
+	// copy back to cpu
+	checkCudaErrors(cudaMemcpy(m_cpuResultBuffer, gpuResultBuffer, m_width * m_height * sizeof(uchar4), cudaMemcpyKind::cudaMemcpyDeviceToHost));
+
+	// free gpu memory
+	checkCudaErrors(cudaFree(gpuResultBuffer));
+
+	return m_cpuResultBuffer;
 }

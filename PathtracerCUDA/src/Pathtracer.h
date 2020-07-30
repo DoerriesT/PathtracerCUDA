@@ -17,7 +17,8 @@ public:
 	float getTiming() const;
 	uint32_t loadTexture(const char *path);
 	void setSkyboxTextureHandle(uint32_t handle);
-	float *getImageData();
+	float *getHDRImageData();
+	char *getImageData();
 
 private:
 	uint32_t m_width;
@@ -28,6 +29,8 @@ private:
 	uint32_t m_accumulatedFrames;
 	uint32_t m_textureCount = 0;
 	uint32_t m_skyboxTextureHandle = 0;
+	float *m_cpuAccumBuffer = nullptr;
+	char *m_cpuResultBuffer = nullptr;
 
 	// gpu resources
 	cudaGraphicsResource *m_pixelBufferCuda = nullptr;
