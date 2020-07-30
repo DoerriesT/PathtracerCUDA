@@ -4,6 +4,7 @@
 
 class Camera;
 class Hittable;
+class CpuHittable;
 struct cudaGraphicsResource;
 
 class Pathtracer
@@ -11,7 +12,7 @@ class Pathtracer
 public:
 	explicit Pathtracer(uint32_t width, uint32_t height, unsigned int openglPixelBuffer = 0);
 	~Pathtracer();
-	void setBVH(uint32_t nodeCount, const BVHNode *nodes, uint32_t hittableCount, const Hittable *hittables);
+	void setScene(size_t count, const CpuHittable *hittables);
 	void render(const Camera &camera, uint32_t spp, bool ignoreHistory);
 	float getTiming() const;
 	uint32_t loadTexture(const char *path);

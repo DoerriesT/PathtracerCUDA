@@ -103,30 +103,48 @@ Pathtracer::~Pathtracer()
 	delete[] m_textureMemory;
 }
 
-void Pathtracer::setBVH(uint32_t nodeCount, const BVHNode *nodes, uint32_t hittableCount, const Hittable *hittables)
+void Pathtracer::setScene(size_t count, const CpuHittable *hittables)
 {
-	// free memory of previous allocations
-	if (m_gpuBVHNodes)
+	BVH bvh;
+	bvh.build(count, hittables, 4);
+	assert(bvh.validate());
+
+	// translate hittables to their cpu version
+	std::vector<Hittable> gpuHittables;
 	{
-		checkCudaErrors(cudaFree(m_gpuBVHNodes));
-		m_gpuBVHNodes = nullptr;
+		auto &bvhElements = bvh.getElements();
+		gpuHittables.reserve(bvh.getElements().size());
+		for (const auto &e : bvhElements)
+		{
+			gpuHittables.push_back(e.getGpuHittable());
+		}
 	}
-	if (m_gpuHittables)
+	
+	// upload to gpu
 	{
-		checkCudaErrors(cudaFree(m_gpuHittables));
-		m_gpuHittables = nullptr;
+		// free memory of previous allocations
+		if (m_gpuBVHNodes)
+		{
+			checkCudaErrors(cudaFree(m_gpuBVHNodes));
+			m_gpuBVHNodes = nullptr;
+		}
+		if (m_gpuHittables)
+		{
+			checkCudaErrors(cudaFree(m_gpuHittables));
+			m_gpuHittables = nullptr;
+		}
+
+		// allocate memory for nodes and leaves
+		checkCudaErrors(cudaMalloc((void **)&m_gpuBVHNodes, bvh.getNodes().size() * sizeof(BVHNode)));
+		checkCudaErrors(cudaMalloc((void **)&m_gpuHittables, gpuHittables.size() * sizeof(Hittable)));
+
+		// copy from cpu to gpu memory
+		checkCudaErrors(cudaMemcpy(m_gpuBVHNodes, bvh.getNodes().data(), bvh.getNodes().size() * sizeof(BVHNode), cudaMemcpyKind::cudaMemcpyHostToDevice));
+		checkCudaErrors(cudaMemcpy(m_gpuHittables, gpuHittables.data(), gpuHittables.size() * sizeof(Hittable), cudaMemcpyKind::cudaMemcpyHostToDevice));
+
+		m_nodeCount = (uint32_t)bvh.getNodes().size();
+		m_hittableCount = (uint32_t)gpuHittables.size();
 	}
-
-	// allocate memory for nodes and leaves
-	checkCudaErrors(cudaMalloc((void **)&m_gpuBVHNodes, nodeCount * sizeof(BVHNode)));
-	checkCudaErrors(cudaMalloc((void **)&m_gpuHittables, hittableCount * sizeof(Hittable)));
-
-	// copy from cpu to gpu memory
-	checkCudaErrors(cudaMemcpy(m_gpuBVHNodes, nodes, nodeCount * sizeof(BVHNode), cudaMemcpyKind::cudaMemcpyHostToDevice));
-	checkCudaErrors(cudaMemcpy(m_gpuHittables, hittables, hittableCount * sizeof(Hittable), cudaMemcpyKind::cudaMemcpyHostToDevice));
-
-	m_nodeCount = nodeCount;
-	m_hittableCount = hittableCount;
 }
 
 void Pathtracer::render(const Camera &camera, uint32_t spp, bool ignoreHistory)

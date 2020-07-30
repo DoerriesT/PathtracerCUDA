@@ -197,7 +197,6 @@ Camera setupScene(Pathtracer &pathtracer, const Params &params)
 
 	Camera camera(lookfrom, lookat, vup, radians(60.0f), aspectRatio, aperture, dist_to_focus);
 
-	BVH bvh;
 	// create entities
 	{
 		std::default_random_engine e;
@@ -286,22 +285,9 @@ Camera setupScene(Pathtracer &pathtracer, const Params &params)
 		//hittablesCpu.push_back(CpuHittable(HittableType::CONE, CpuHittable::Payload(Cone{ vec3(0.0f, 3.0f, 0.0f), 1.0f, 1.0f }), Material(Material::Type::LAMBERTIAN, vec3(1.0f, 0.0f, 0.0f), 0.0f, 1.5f)));
 		//
 		//hittablesCpu.push_back(CpuHittable(HittableType::PARABOLOID, CpuHittable::Payload(Paraboloid{ vec3(3.0f, 1.0f, 3.0f), 1.0f, 3.0f }), Material(Material::Type::METAL, vec3(1.0f, 1.0f, 1.0f), 0.0f, 1.5f)));
-
-
-		bvh.build(hittablesCpu.size(), hittablesCpu.data(), 4);
-		assert(bvh.validate());
+	
+		pathtracer.setScene(hittablesCpu.size(), hittablesCpu.data());
 	}
-
-	// translate hittables to their cpu version
-	auto &bvhElements = bvh.getElements();
-	std::vector<Hittable> gpuHittables;
-	gpuHittables.reserve(bvh.getElements().size());
-	for (const auto &e : bvhElements)
-	{
-		gpuHittables.push_back(e.getGpuHittable());
-	}
-
-	pathtracer.setBVH((uint32_t)bvh.getNodes().size(), bvh.getNodes().data(), (uint32_t)gpuHittables.size(), gpuHittables.data());
 
 	return camera;
 }
