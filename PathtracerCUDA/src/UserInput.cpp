@@ -1,5 +1,15 @@
 #include "UserInput.h"
-#include "ContainerUtility.h"
+
+template<typename T>
+static void quickRemove(std::vector<T> &v, const T &item)
+{
+	auto it = std::find(v.begin(), v.end(), item);
+	if (it != v.end())
+	{
+		std::swap(v.back(), *it);
+		v.erase(--v.end());
+	}
+}
 
 UserInput::UserInput()
 {
@@ -55,7 +65,7 @@ void UserInput::addKeyListener(IKeyListener *listener)
 
 void UserInput::removeKeyListener(IKeyListener *listener)
 {
-	ContainerUtility::remove(m_keyListeners, listener);
+	quickRemove(m_keyListeners, listener);
 }
 
 void UserInput::addCharListener(ICharListener *listener)
@@ -65,7 +75,7 @@ void UserInput::addCharListener(ICharListener *listener)
 
 void UserInput::removeCharListener(ICharListener *listener)
 {
-	ContainerUtility::remove(m_charListeners, listener);
+	quickRemove(m_charListeners, listener);
 }
 
 void UserInput::addScrollListener(IScrollListener *listener)
@@ -75,7 +85,7 @@ void UserInput::addScrollListener(IScrollListener *listener)
 
 void UserInput::removeScrollListener(IScrollListener *listener)
 {
-	ContainerUtility::remove(m_scrollListeners, listener);
+	quickRemove(m_scrollListeners, listener);
 }
 
 void UserInput::addMouseButtonListener(IMouseButtonListener *listener)
@@ -85,7 +95,7 @@ void UserInput::addMouseButtonListener(IMouseButtonListener *listener)
 
 void UserInput::removeMouseButtonListener(IMouseButtonListener *listener)
 {
-	ContainerUtility::remove(m_mouseButtonlisteners, listener);
+	quickRemove(m_mouseButtonlisteners, listener);
 }
 
 void UserInput::onKey(InputKey key, InputAction action)

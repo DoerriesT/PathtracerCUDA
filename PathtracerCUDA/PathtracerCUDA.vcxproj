@@ -104,7 +104,6 @@
     <ClInclude Include="src\brdf.h" />
     <ClInclude Include="src\BVH.h" />
     <ClInclude Include="src\Camera.h" />
-    <ClInclude Include="src\ContainerUtility.h" />
     <ClInclude Include="src\HitRecord.h" />
     <ClInclude Include="src\Hittable.h" />
     <ClInclude Include="src\IInputListener.h" />

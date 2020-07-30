@@ -1,6 +1,5 @@
 #include "Window.h"
 #include <GLFW/glfw3.h>
-#include "ContainerUtility.h"
 
 void windowSizeCallback(GLFWwindow *window, int width, int height);
 void curserPosCallback(GLFWwindow *window, double xPos, double yPos);
@@ -130,7 +129,12 @@ void Window::addInputListener(IInputListener *listener)
 
 void Window::removeInputListener(IInputListener *listener)
 {
-	ContainerUtility::remove(m_inputListeners, listener);
+	auto it = std::find(m_inputListeners.begin(), m_inputListeners.end(), listener);
+	if (it != m_inputListeners.end())
+	{
+		std::swap(m_inputListeners.back(), *it);
+		m_inputListeners.erase(--m_inputListeners.end());
+	}
 }
 
 // callback functions
