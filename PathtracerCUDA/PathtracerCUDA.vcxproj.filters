@@ -39,8 +39,8 @@
     <ClCompile Include="src\pathtracer\Hittable.cpp">
       <Filter>src\pathtracer</Filter>
     </ClCompile>
-    <ClCompile Include="src\pathtracer\Pathtracer.cpp">
-      <Filter>src\pathtracer</Filter>
+    <ClCompile Include="src\SceneLoader.cpp">
+      <Filter>src</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -104,6 +104,12 @@
     <ClInclude Include="src\pathtracer\kernels\trace.h">
       <Filter>src\pathtracer\kernels</Filter>
     </ClInclude>
+    <ClInclude Include="src\SceneLoader.h">
+      <Filter>src</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Params.h">
+      <Filter>src</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="src\pathtracer\Camera.inl">
@@ -131,6 +137,9 @@
     </CudaCompile>
     <CudaCompile Include="src\pathtracer\kernels\trace.cu">
       <Filter>src\pathtracer\kernels</Filter>
+    </CudaCompile>
+    <CudaCompile Include="src\pathtracer\Pathtracer.cpp">
+      <Filter>src\pathtracer</Filter>
     </CudaCompile>
   </ItemGroup>
 </Project>

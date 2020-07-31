@@ -13,6 +13,10 @@ class Pathtracer
 {
 public:
 	explicit Pathtracer(uint32_t width, uint32_t height, unsigned int openglPixelBuffer = 0);
+	Pathtracer(const Pathtracer &) = delete;
+	Pathtracer(const Pathtracer &&) = delete;
+	Pathtracer &operator= (const Pathtracer &) = delete;
+	Pathtracer &operator= (const Pathtracer &&) = delete;
 	~Pathtracer();
 
 	void setScene(size_t count, const CpuHittable *hittables);

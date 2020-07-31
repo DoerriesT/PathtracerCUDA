@@ -7,7 +7,7 @@ __host__ __device__ inline Camera::Camera(
 	const vec3 &up,
 	float fovy,
 	float aspectRatio)
-	:m_tanHalfFovy(tan(fovy * 0.5f)),
+	:m_tanHalfFovy(tanf(fovy * 0.5f)),
 	m_aspectRatio(aspectRatio),
 	m_origin(position),
 	m_lowerLeftCorner(-1.0f, -1.0f, -1.0f),

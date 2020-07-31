@@ -90,6 +90,7 @@
     <ClCompile Include="src\pathtracer\BVH.cpp" />
     <ClCompile Include="src\pathtracer\Hittable.cpp" />
     <CudaCompile Include="src\pathtracer\Pathtracer.cpp" />
+    <ClCompile Include="src\SceneLoader.cpp" />
     <ClCompile Include="src\util\UserInput.cpp" />
     <ClCompile Include="src\util\Window.cpp" />
     <ClCompile Include="src\main.cpp" />
@@ -97,6 +98,7 @@
     <ClCompile Include="src\stb_image_write.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="src\Params.h" />
     <ClInclude Include="src\pathtracer\AABB.h" />
     <ClInclude Include="src\pathtracer\brdf.h" />
     <ClInclude Include="src\pathtracer\BVH.h" />
@@ -111,6 +113,7 @@
     <ClInclude Include="src\pathtracer\Pathtracer.h" />
     <ClInclude Include="src\pathtracer\Ray.h" />
     <ClInclude Include="src\pathtracer\vec3.h" />
+    <ClInclude Include="src\SceneLoader.h" />
     <ClInclude Include="src\stb_image.h" />
     <ClInclude Include="src\stb_image_write.h" />
     <ClInclude Include="src\util\IInputListener.h" />
