@@ -155,7 +155,7 @@ bool processArgs(int argc, char *argv[], Params &params)
 
 	if (displayHelp)
 	{
-		printf("USAGE: pathtracer.exe [options] <input file>\n\n");
+		printf("USAGE: PathtracerCUDA.exe [options] <input file>\n\n");
 		printf("Options:\n");
 		printf("%-30s Display available options\n", helpOption);
 		printf("%-30s Set width of output image\n", widthOption);
