@@ -37,7 +37,7 @@ bool processArgs(int argc, char *argv[], Params &params)
 
 	// walk through command line arguments and evaluate them
 	int i = 1;
-	for (; i < argc;)
+	for (; i < (argc - 1);)
 	{
 		if (strcmp(argv[i], helpOption) == 0)
 		{
@@ -136,6 +136,8 @@ bool processArgs(int argc, char *argv[], Params &params)
 		}
 		else
 		{
+			printf("Can't parse argument: %s\n", argv[i]);
+			displayHelp = true;
 			break;
 		}
 	}
