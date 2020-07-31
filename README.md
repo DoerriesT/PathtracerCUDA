@@ -14,7 +14,7 @@ Simple pathtracer with quadrics written in C++ and CUDA. It has the following fe
 
 # Usage
 
-pathtracer.exe \[options\] \<input file\>
+PathtracerCUDA.exe \[options\] \<input file\>
 
 Option | Description
 ------------ | -------------
