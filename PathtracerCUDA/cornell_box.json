@@ -1,8 +1,8 @@
 {
 	"camera": {
-		"position": [0.0, 1.0, 3.0],
+		"position": [0.0, 1.0, 4.0],
 		"look_at": [0.0, 1.0, 0.0],
-		"fovy": 60.0
+		"fovy": 40.0
 	},
 	"skybox": "skybox.hdr__",
 	"objects": [
@@ -118,7 +118,7 @@
 			"rotation": [0.0, -30.0, 0.0],
 			"scale": [0.25, 0.25, 0.25],
 			"material": {
-				"type": "LAMBERT_GGX",
+				"type": "LAMBERT",
 				"baseColor": [1.0, 1.0, 1.0],
 				"emissive": [0.0, 0.0, 0.0],
 				"roughness": 0.1,
