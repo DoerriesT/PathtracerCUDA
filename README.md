@@ -1,4 +1,6 @@
 # PathtracerCUDA
+![Scene with several hundred random shapes with random materials and a HDRI environment](PathtracerCUDA/generated_scene_4096spp.png?raw=true "Scene with several hundred random shapes with random materials and a HDRI environment")
+
 Simple pathtracer with quadrics written in C++ and CUDA. It has the following features:
 - Several shape types (sphere, cylinder, disk, cone, paraboloid, quad, cube)
 - Different material types (lambertian diffuse, GGX specular, mix of both)
@@ -42,11 +44,11 @@ The project comes as a Visual Studio 2019 solution and already includes all depe
 
 # Screenshots
 
+Scene with several hundred random shapes with random materials and a HDRI environment (4096spp):
+(See top of the page)
+
 Cornell Box (4096spp):
 ![Cornell Box](PathtracerCUDA/cornell_box_4096spp.png?raw=true "Cornell Box")
-
-Scene with several hundred random shapes with random materials and a HDRI environment (4096spp):
-![Scene with several hundred random shapes with random materials and a HDRI environment](PathtracerCUDA/generated_scene_4096spp.png?raw=true "Scene with several hundred random shapes with random materials and a HDRI environment")
 
 
 # Credits
